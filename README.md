@@ -2,6 +2,12 @@
 
 本项目基于[三国杀自走棋小抄](https://github.com/caoyang-sufe/sgscodex)收集细粒度的自走棋实战操作数据，进行强化学习训练
 
+目前项目处于demo阶段，提供三个文件：
+
+- `CollectOperationTick.js`: 用于游戏中收集tick级别状态动作数据的篡改猴脚本
+- `tavern_data_sample.json.json`: 实际测试的tick级别状态动作数据样例
+- `train_demo.py`: torch + TRL 框架的训练示例脚本
+
 具体状态/动作定义如下:
 
 1. 状态（state）：
