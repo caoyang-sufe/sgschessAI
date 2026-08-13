@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三国杀自走棋 - 录像回放器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #1a1a2e;
+            color: #e0d5c1;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            background: linear-gradient(145deg, #16213e, #0f3460);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid #2a3a6a;
+        }
+
+        /* ===== 顶部控制栏 ===== */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #2a4a7a;
+        }
+
+        .controls .info {
+            font-size: 14px;
+            color: #aac8ff;
+            margin-right: auto;
+        }
+
+        .controls .info span {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .controls button {
+            background: linear-gradient(145deg, #2a4a7a, #1a2a5a);
+            border: 1px solid #4a6a9a;
+            color: #e0d5c1;
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-weight: bold;
+            min-width: 70px;
+        }
+
+        .controls button:hover {
+            background: linear-gradient(145deg, #3a5a8a, #2a3a6a);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(42, 74, 122, 0.4);
+        }
+
+        .controls button:active {
+            transform: translateY(0);
+        }
+
+        .controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .controls .progress-bar {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .controls .progress-bar input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #2a4a7a, #4a8aff);
+            outline: none;
+        }
+
+        .controls .progress-bar input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #4a8aff, #2a5a9a);
+            cursor: pointer;
+            border: 2px solid #6aaaff;
+        }
+
+        .controls .step-info {
+            font-size: 13px;
+            color: #88aadd;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        /* ===== 主游戏区域 ===== */
+        .game-board {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* ===== 商店区 ===== */
+        .shop-area {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            border: 1px solid #2a4a6a;
+            min-height: 220px;
+        }
+
+        .shop-area .area-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 15px;
+            color: #88bbdd;
+        }
+
+        .shop-area .area-title .shop-info {
+            font-size: 13px;
+            color: #88aadd;
+        }
+
+        .shop-area .area-title .shop-info span {
+            color: #ffd700;
+            margin: 0 4px;
+        }
+
+        .shop-grid {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
+        .shop-slot {
+            width: 140px;
+            height: 190px;
+            background: rgba(20, 30, 60, 0.6);
+            border-radius: 10px;
+            border: 2px solid #2a4a6a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .shop-slot.has-card {
+            border-color: #4a8aff;
+            background: rgba(30, 50, 80, 0.6);
+        }
+
+        .shop-slot .card-img {
+            width: 100px;
+            height: 130px;
+            object-fit: contain;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .shop-slot .card-name {
+            font-size: 12px;
+            color: #aac8ff;
+            margin-top: 4px;
+            text-align: center;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .shop-slot .card-rank {
+            font-size: 11px;
+            color: #ffd700;
+            margin-top: 2px;
+        }
+
+        .shop-slot .empty-text {
+            color: #4a6a8a;
+            font-size: 13px;
+        }
+
+        /* ===== 上阵区 ===== */
+        .lineup-area {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            border: 1px solid #2a4a6a;
+            min-height: 200px;
+        }
+
+        .lineup-area .area-title {
+            font-size: 15px;
+            color: #88bbdd;
+            margin-bottom: 12px;
+        }
+
+        .lineup-grid {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
+        .lineup-slot {
+            width: 110px;
+            height: 150px;
+            background: rgba(20, 30, 60, 0.6);
+            border-radius: 10px;
+            border: 2px solid #2a4a6a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            transition: all 0.3s;
+        }
+
+        .lineup-slot.has-card {
+            border-color: #66dd88;
+            background: rgba(30, 60, 40, 0.4);
+        }
+
+        .lineup-slot .card-img {
+            width: 80px;
+            height: 104px;
+            object-fit: contain;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .lineup-slot .card-name {
+            font-size: 11px;
+            color: #aac8ff;
+            margin-top: 3px;
+            text-align: center;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .lineup-slot .card-stats {
+            font-size: 10px;
+            color: #88bbdd;
+            margin-top: 1px;
+        }
+
+        /* ===== 手牌区 ===== */
+        .hand-area {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            border: 1px solid #2a4a6a;
+            min-height: 200px;
+        }
+
+        .hand-area .area-title {
+            font-size: 15px;
+            color: #88bbdd;
+            margin-bottom: 12px;
+        }
+
+        .hand-grid {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
+        .hand-slot {
+            width: 100px;
+            height: 140px;
+            background: rgba(20, 30, 60, 0.6);
+            border-radius: 10px;
+            border: 2px solid #2a4a6a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            transition: all 0.3s;
+        }
+
+        .hand-slot.has-card {
+            border-color: #ffaa44;
+            background: rgba(60, 40, 20, 0.4);
+        }
+
+        .hand-slot .card-img {
+            width: 72px;
+            height: 94px;
+            object-fit: contain;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .hand-slot .card-name {
+            font-size: 10px;
+            color: #aac8ff;
+            margin-top: 3px;
+            text-align: center;
+            max-width: 90px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .hand-slot .card-tag {
+            font-size: 9px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-top: 2px;
+        }
+
+        .hand-slot .tag-spell {
+            background: #6a3a8a;
+            color: #ddbbff;
+        }
+
+        .hand-slot .tag-followup {
+            background: #8a6a2a;
+            color: #ffdd88;
+        }
+
+        /* ===== 动作信息 ===== */
+        .action-info {
+            margin-top: 15px;
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            border-left: 4px solid #4a8aff;
+            font-size: 14px;
+            color: #aac8ff;
+            min-height: 50px;
+        }
+
+        .action-info .action-type {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .action-info .action-detail {
+            color: #88bbdd;
+            margin-left: 8px;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+            .shop-slot {
+                width: 100px;
+                height: 140px;
+            }
+            .shop-slot .card-img {
+                width: 72px;
+                height: 94px;
+            }
+            .lineup-slot {
+                width: 80px;
+                height: 110px;
+            }
+            .lineup-slot .card-img {
+                width: 60px;
+                height: 78px;
+            }
+            .hand-slot {
+                width: 75px;
+                height: 105px;
+            }
+            .hand-slot .card-img {
+                width: 54px;
+                height: 70px;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .controls .progress-bar {
+                flex-direction: column;
+            }
+        }
+
+        /* ===== 滚动条美化 ===== */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4a6a9a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5a7aaa;
+        }
+
+        /* ===== 加载状态 ===== */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #88aadd;
+            font-size: 18px;
+        }
+
+        .loading .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #2a4a6a;
+            border-top-color: #4a8aff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app">
+    <!-- 顶部控制栏 -->
+    <div class="controls">
+        <div class="info">
+            🏆 回合 <span id="roundDisplay">0</span> | 
+            步数 <span id="stepDisplay">0</span>/<span id="totalSteps">0</span>
+        </div>
+        <button id="btnFirst" title="跳转到第一步">⏮</button>
+        <button id="btnPrev" title="上一步">◀</button>
+        <button id="btnPlay" title="播放/暂停">▶</button>
+        <button id="btnNext" title="下一步">▶</button>
+        <button id="btnLast" title="跳转到最后一步">⏭</button>
+        <div class="progress-bar">
+            <input type="range" id="stepSlider" min="0" max="0" value="0">
+            <span class="step-info" id="stepInfo">0 / 0</span>
+        </div>
+        <button id="btnSpeed" title="播放速度">1x</button>
+    </div>
+
+    <!-- 游戏面板 -->
+    <div class="game-board" id="gameBoard">
+        <!-- 商店区 -->
+        <div class="shop-area">
+            <div class="area-title">
+                <span>🏪 商店</span>
+                <div class="shop-info">
+                    等级: <span id="shopLevel">0</span> | 
+                    金币: <span id="shopMoney">0</span> | 
+                    刷新费: <span id="shopRefreshCost">0</span>
+                </div>
+            </div>
+            <div class="shop-grid" id="shopGrid"></div>
+        </div>
+
+        <!-- 上阵区 -->
+        <div class="lineup-area">
+            <div class="area-title">⚔️ 上阵区 (<span id="lineupCount">0</span> 个)</div>
+            <div class="lineup-grid" id="lineupGrid"></div>
+        </div>
+
+        <!-- 手牌区 -->
+        <div class="hand-area">
+            <div class="area-title">🃏 手牌区 (<span id="handCount">0</span> 张)</div>
+            <div class="hand-grid" id="handGrid"></div>
+        </div>
+
+        <!-- 动作信息 -->
+        <div class="action-info" id="actionInfo">
+            <span style="color: #4a6a8a;">就绪</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // 录像回放器 - 核心逻辑
+    // ============================================================
+
+    /**
+     * 卡牌名称映射 (基于chessId)
+     * 由于没有完整的卡牌数据，这里提供部分映射，实际使用时可以扩展
+     */
+    const CHESS_NAME_MAP = {
+        // 魏国
+        21001021: '夏侯惇', 21001011: '曹休',
+        21001031: '邓艾', 21001041: '夏侯渊',
+        21001051: '曹轶', 21001061: '薛灵芸',
+        21001071: '典韦', 21001081: '郭嘉',
+        21001091: '许褚', 21001101: '荀彧',
+        21001111: '甄姬', 21001121: '曹仁',
+        21001131: '曹昂', 21001141: '戏志才',
+        21001151: '曹金玉', 21001161: '司马懿',
+        21001171: '张郃', 21001181: '张辽',
+        21001191: '田尚衣', 21001201: '钟会',
+        21001211: '程昱', 21001221: '曹丕',
+        // 蜀国
+        21002021: '张星彩', 21002031: '关银屏',
+        21002041: '关羽', 21002051: '糜竺',
+        21002061: '魏延', 21002071: '刘禅',
+        21002081: '廖化', 21002091: '周仓',
+        21002101: '赵云', 21002111: '关兴',
+        21002121: '徐庶', 21002131: '诸葛亮',
+        21002141: '黄忠', 21002151: '赵襄',
+        21002161: '张飞', 21002171: '庞统',
+        21002181: '黄月英', 21002191: '张苞',
+        21002201: '刘永', 21002211: '法正',
+        21002221: '姜维', 21002231: '秦宓',
+        // 吴国
+        21003011: '吕蒙', 21003021: '陈武',
+        21003031: '陆逊', 21003041: '程普',
+        21003051: '丁奉', 21003061: '凌统',
+        21003071: '黄盖', 21003081: '葛玄',
+        21003091: '周善', 21003101: '徐盛',
+        21003111: '甘宁', 21003121: '太史慈',
+        21003131: '张昭', 21003141: '大乔',
+        21003151: '孙坚', 21003161: '鲁肃',
+        21003171: '孙尚香', 21003191: '孙翎鸾',
+        21003201: '周瑜', 21003211: '孙策',
+        21003221: '小乔', 21003231: '韩当',
+        21003241: '董袭',
+        // 黄巾
+        21004011: '邓茂', 21004021: '眭固',
+        21004031: '陶升', 21004041: '程远志',
+        21004051: '波才', 21004061: '严政',
+        21004071: '何曼', 21004081: '裴元绍',
+        21004091: '刘辟', 21004101: '卜巳',
+        21004111: '张曼成', 21004121: '张闿',
+        21004131: '张燕', 21004141: '马元义',
+        21004151: '白绕', 21004161: '于毒',
+        21004171: '管亥', 21004181: '高升',
+        21004191: '张宝', 21004201: '张楚',
+        21004211: '张宁', 21004221: '张梁',
+        // 汉
+        21005011: '卢植', 21005021: '冯方',
+        21005031: '伏完', 21005041: '董贵人',
+        21005051: '朱儁', 21005061: '刘繇',
+        21005071: '王荣', 21005081: '郭胜',
+        21005091: '皇甫嵩', 21005101: '王允',
+        21005111: '陈登', 21005121: '杨彪',
+        21005131: '万年公主', 21005141: '曹节',
+        21005151: '何进', 21005161: '唐姬',
+        21005171: '张让', 21005181: '赵忠',
+        21005191: '刘辩', 21005201: '何太后',
+        21005211: '刘宏', 21005221: '董承',
+        // 西凉
+        21006011: '马云騄', 21006021: '段煨',
+        21006031: '马休', 21006041: '张横',
+        21006051: '董白', 21006061: '韩遂',
+        21006071: '马伶俐', 21006081: '董翓',
+        21006091: '华雄', 21006101: '董絮',
+        21006111: '张济', 21006121: '马超',
+        21006131: '徐荣', 21006141: '杨婉',
+        21006151: '庞德', 21006161: '李傕',
+        21006171: '马岱', 21006181: '李肃',
+        21006191: '马铁', 21006201: '樊稠',
+        21006211: '马腾', 21006221: '郭汜',
+        // 袁
+        21007011: '颜良', 21007021: '桥蕤',
+        21007031: '审配', 21007041: '雷薄',
+        21007051: '高览', 21007061: '冯妤',
+        21007071: '许攸', 21007081: '纪灵',
+        21007091: '逢纪', 21007101: '张勋',
+        21007111: '文丑', 21007121: '杨弘',
+        21007131: '乐就', 21007141: '袁胤',
+        21007151: '淳于琼', 21007161: '郭图',
+        21007171: '韩猛', 21007181: '麹义',
+        21007191: '董绾', 21007201: '袁绍',
+        21007211: '袁术', 21007221: '田丰',
+        21007231: '沮授',
+        // 群
+        21008011: '陶谦', 21008021: '邹氏',
+        21008031: '蔡夫人', 21008041: '蔡邕',
+        21008051: '严夫人', 21008061: '士燮',
+        21008071: '吉平', 21008081: '陈珪',
+        21008091: '貂蝉', 21008101: '潘凤',
+        21008111: '司马徽', 21008121: '童渊',
+        21008131: '邢道荣', 21008141: '张鲁',
+        21008151: '胡车儿', 21008161: '管宁',
+        21008171: '韩馥', 21008181: '华佗',
+        21008191: '祢衡', 21008201: '刘表',
+        21008211: '于吉', 21008221: '庞德公',
+        21008231: '黄承彦', 21008241: '来莺儿',
+        21008251: '贾诩', 21008261: '吕布',
+        21008271: '南华老仙', 21008281: '许劭',
+        21008291: '左慈', 21008301: '蔡文姬',
+    };
+
+    // ============================================================
+    // 主控制器
+    // ============================================================
+
+    class TavernChessReplayer {
+        constructor() {
+            this.data = null;
+            this.trajectory = [];
+            this.currentIndex = -1;
+            this.isPlaying = false;
+            this.playTimer = null;
+            this.playSpeed = 1;
+            this.speedOptions = [0.5, 1, 2, 4];
+            this.speedIndex = 1;
+
+            // DOM 引用
+            this.elements = {
+                roundDisplay: document.getElementById('roundDisplay'),
+                stepDisplay: document.getElementById('stepDisplay'),
+                totalSteps: document.getElementById('totalSteps'),
+                stepSlider: document.getElementById('stepSlider'),
+                stepInfo: document.getElementById('stepInfo'),
+                shopLevel: document.getElementById('shopLevel'),
+                shopMoney: document.getElementById('shopMoney'),
+                shopRefreshCost: document.getElementById('shopRefreshCost'),
+                shopGrid: document.getElementById('shopGrid'),
+                lineupGrid: document.getElementById('lineupGrid'),
+                lineupCount: document.getElementById('lineupCount'),
+                handGrid: document.getElementById('handGrid'),
+                handCount: document.getElementById('handCount'),
+                actionInfo: document.getElementById('actionInfo'),
+                btnPlay: document.getElementById('btnPlay'),
+                btnPrev: document.getElementById('btnPrev'),
+                btnNext: document.getElementById('btnNext'),
+                btnFirst: document.getElementById('btnFirst'),
+                btnLast: document.getElementById('btnLast'),
+                btnSpeed: document.getElementById('btnSpeed'),
+            };
+
+            this.bindEvents();
+            this.loadData();
+        }
+
+        // ============================================================
+        // 数据加载
+        // ============================================================
+
+        async loadData() {
+            try {
+                // 尝试从同一目录加载 JSON 文件
+                const response = await fetch('tavern_data.json');
+                if (!response.ok) throw new Error('无法加载数据文件');
+                this.data = await response.json();
+
+                // 提取轨迹
+                this.trajectory = this.data.trajectory || [];
+
+                if (this.trajectory.length === 0) {
+                    this.showError('数据文件中没有轨迹记录');
+                    return;
+                }
+
+                this.initUI();
+                this.goToStep(0);
+
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                // 如果无法加载外部文件，尝试使用页面内嵌数据
+                if (window.EMBEDDED_DATA) {
+                    this.data = window.EMBEDDED_DATA;
+                    this.trajectory = this.data.trajectory || [];
+                    if (this.trajectory.length > 0) {
+                        this.initUI();
+                        this.goToStep(0);
+                        return;
+                    }
+                }
+                this.showError('无法加载数据文件，请确保 tavern_data.json 在同一目录下');
+            }
+        }
+
+        showError(msg) {
+            document.getElementById('gameBoard').innerHTML = `
+                <div style="text-align:center;padding:60px 20px;color:#ff6666;">
+                    <div style="font-size:48px;margin-bottom:20px;">❌</div>
+                    <div style="font-size:18px;">${msg}</div>
+                    <div style="font-size:14px;color:#88aadd;margin-top:12px;">
+                        请将 tavern_data.json 放在与本 HTML 相同的目录下
+                    </div>
+                </div>
+            `;
+        }
+
+        // ============================================================
+        // UI 初始化
+        // ============================================================
+
+        initUI() {
+            const total = this.trajectory.length;
+            this.elements.totalSteps.textContent = total;
+            this.elements.stepSlider.max = total - 1;
+            this.elements.stepInfo.textContent = `0 / ${total}`;
+        }
+
+        bindEvents() {
+            // 播放/暂停
+            this.elements.btnPlay.addEventListener('click', () => this.togglePlay());
+
+            // 步进控制
+            this.elements.btnPrev.addEventListener('click', () => this.prevStep());
+            this.elements.btnNext.addEventListener('click', () => this.nextStep());
+            this.elements.btnFirst.addEventListener('click', () => this.goToStep(0));
+            this.elements.btnLast.addEventListener('click', () => this.goToStep(this.trajectory.length - 1));
+
+            // 进度条
+            this.elements.stepSlider.addEventListener('input', (e) => {
+                const idx = parseInt(e.target.value);
+                this.goToStep(idx);
+            });
+
+            // 速度切换
+            this.elements.btnSpeed.addEventListener('click', () => {
+                this.speedIndex = (this.speedIndex + 1) % this.speedOptions.length;
+                this.playSpeed = this.speedOptions[this.speedIndex];
+                this.elements.btnSpeed.textContent = `${this.playSpeed}x`;
+                if (this.isPlaying) {
+                    this.stopPlay();
+                    this.startPlay();
+                }
+            });
+
+            // 键盘快捷键
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                switch (e.key) {
+                    case ' ':
+                        e.preventDefault();
+                        this.togglePlay();
+                        break;
+                    case 'ArrowLeft':
+                        this.prevStep();
+                        break;
+                    case 'ArrowRight':
+                        this.nextStep();
+                        break;
+                    case 'Home':
+                        this.goToStep(0);
+                        break;
+                    case 'End':
+                        this.goToStep(this.trajectory.length - 1);
+                        break;
+                }
+            });
+        }
+
+        // ============================================================
+        // 核心控制
+        // ============================================================
+
+        goToStep(index) {
+            if (index < 0 || index >= this.trajectory.length) return;
+
+            this.currentIndex = index;
+            const step = this.trajectory[index];
+
+            // 更新进度条
+            this.elements.stepSlider.value = index;
+            this.elements.stepInfo.textContent = `${index + 1} / ${this.trajectory.length}`;
+
+            // 更新显示
+            this.renderStep(step);
+            this.updateControls();
+
+            // 如果正在播放且到达末尾，停止播放
+            if (this.isPlaying && index >= this.trajectory.length - 1) {
+                this.stopPlay();
+            }
+        }
+
+        nextStep() {
+            if (this.currentIndex < this.trajectory.length - 1) {
+                this.goToStep(this.currentIndex + 1);
+            } else {
+                this.stopPlay();
+            }
+        }
+
+        prevStep() {
+            if (this.currentIndex > 0) {
+                this.goToStep(this.currentIndex - 1);
+            }
+        }
+
+        togglePlay() {
+            if (this.isPlaying) {
+                this.stopPlay();
+            } else {
+                this.startPlay();
+            }
+        }
+
+        startPlay() {
+            if (this.currentIndex >= this.trajectory.length - 1) {
+                this.goToStep(0);
+            }
+            this.isPlaying = true;
+            this.elements.btnPlay.textContent = '⏸';
+            this.elements.btnPlay.style.color = '#ffaa44';
+            this.playTimer = setInterval(() => {
+                if (this.currentIndex < this.trajectory.length - 1) {
+                    this.nextStep();
+                } else {
+                    this.stopPlay();
+                }
+            }, 800 / this.playSpeed);
+        }
+
+        stopPlay() {
+            this.isPlaying = false;
+            this.elements.btnPlay.textContent = '▶';
+            this.elements.btnPlay.style.color = '';
+            if (this.playTimer) {
+                clearInterval(this.playTimer);
+                this.playTimer = null;
+            }
+        }
+
+        updateControls() {
+            const total = this.trajectory.length;
+            const isFirst = this.currentIndex <= 0;
+            const isLast = this.currentIndex >= total - 1;
+
+            this.elements.btnFirst.disabled = isFirst;
+            this.elements.btnPrev.disabled = isFirst;
+            this.elements.btnNext.disabled = isLast;
+            this.elements.btnLast.disabled = isLast;
+        }
+
+        // ============================================================
+        // 渲染
+        // ============================================================
+
+        renderStep(step) {
+            const state = step.stateAfter || step.stateBefore;
+            if (!state) return;
+
+            // 更新基本信息
+            this.elements.roundDisplay.textContent = state.round || 0;
+            this.elements.stepDisplay.textContent = this.currentIndex + 1;
+            this.elements.shopLevel.textContent = state.shopLevel || 0;
+            this.elements.shopMoney.textContent = state.money || 0;
+            this.elements.shopRefreshCost.textContent = state.shopRefreshCost || 0;
+
+            // 渲染各区域
+            this.renderShop(state.shopGoods || []);
+            this.renderLineup(state.lineup || []);
+            this.renderHand(state.handChess || []);
+            this.renderAction(step);
+
+            // 更新计数
+            this.elements.lineupCount.textContent = state.lineupCount || 0;
+            this.elements.handCount.textContent = state.handCount || 0;
+        }
+
+        // ----- 商店渲染 -----
+        renderShop(goods) {
+            const grid = this.elements.shopGrid;
+            grid.innerHTML = '';
+
+            if (!goods || goods.length === 0) {
+                grid.innerHTML = '<div style="color:#4a6a8a;padding:10px;">商店为空</div>';
+                return;
+            }
+
+            goods.forEach((item) => {
+                const slot = document.createElement('div');
+                slot.className = `shop-slot ${item && item.goodsID ? 'has-card' : ''}`;
+
+                if (item && item.goodsID) {
+                    const img = document.createElement('img');
+                    const chessId = item.chessID || 0;
+                    const spellId = item.spellID || 0;
+                    const id = spellId || chessId;
+                    img.className = 'card-img';
+                    img.src = `/assets/card/${id}.png`;
+                    img.alt = item.name || '卡牌';
+                    img.onerror = () => { img.style.display = 'none'; };
+
+                    const name = document.createElement('div');
+                    name.className = 'card-name';
+                    name.textContent = this.getCardName(chessId, spellId);
+
+                    const rank = document.createElement('div');
+                    rank.className = 'card-rank';
+                    rank.textContent = item.rank ? `⭐${item.rank}` : '';
+
+                    slot.appendChild(img);
+                    slot.appendChild(name);
+                    slot.appendChild(rank);
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-text';
+                    empty.textContent = '空';
+                    slot.appendChild(empty);
+                }
+
+                grid.appendChild(slot);
+            });
+        }
+
+        // ----- 上阵渲染 -----
+        renderLineup(lineup) {
+            const grid = this.elements.lineupGrid;
+            grid.innerHTML = '';
+
+            if (!lineup || lineup.length === 0) {
+                grid.innerHTML = '<div style="color:#4a6a8a;padding:10px;">上阵区为空</div>';
+                return;
+            }
+
+            lineup.forEach((item, index) => {
+                const slot = document.createElement('div');
+                slot.className = `lineup-slot ${item && item.goodsID ? 'has-card' : ''}`;
+
+                if (item && item.goodsID) {
+                    const chessId = item.chessID || 0;
+                    const img = document.createElement('img');
+                    img.className = 'card-img';
+                    img.src = `/assets/card/${chessId}.png`;
+                    img.alt = item.name || '卡牌';
+                    img.onerror = () => { img.style.display = 'none'; };
+
+                    const name = document.createElement('div');
+                    name.className = 'card-name';
+                    name.textContent = this.getCardName(chessId, 0);
+
+                    const stats = document.createElement('div');
+                    stats.className = 'card-stats';
+                    stats.textContent = `⚔${item.attack || 0} ❤${item.hp || 0}`;
+
+                    slot.appendChild(img);
+                    slot.appendChild(name);
+                    slot.appendChild(stats);
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-text';
+                    empty.textContent = `位置 ${index + 1}`;
+                    slot.appendChild(empty);
+                }
+
+                grid.appendChild(slot);
+            });
+        }
+
+        // ----- 手牌渲染 -----
+        renderHand(hand) {
+            const grid = this.elements.handGrid;
+            grid.innerHTML = '';
+
+            if (!hand || hand.length === 0) {
+                grid.innerHTML = '<div style="color:#4a6a8a;padding:10px;">手牌为空</div>';
+                return;
+            }
+
+            hand.forEach((card) => {
+                const slot = document.createElement('div');
+                slot.className = `hand-slot ${card && card.goodsID ? 'has-card' : ''}`;
+
+                if (card && card.goodsID) {
+                    const chessId = card.chessID || 0;
+                    const spellId = card.spellID || 0;
+                    const id = spellId || chessId;
+
+                    const img = document.createElement('img');
+                    img.className = 'card-img';
+                    img.src = `/assets/card/${id}.png`;
+                    img.alt = card.name || '卡牌';
+                    img.onerror = () => { img.style.display = 'none'; };
+
+                    const name = document.createElement('div');
+                    name.className = 'card-name';
+                    name.textContent = this.getCardName(chessId, spellId);
+
+                    const tag = document.createElement('div');
+                    tag.className = 'card-tag';
+                    if (card.isSpell) {
+                        tag.textContent = '📜 锦囊';
+                        tag.classList.add('tag-spell');
+                    } else if (card.isFollowUp) {
+                        tag.textContent = '🔗 随征';
+                        tag.classList.add('tag-followup');
+                    } else {
+                        tag.textContent = `⚔${card.attack || 0} ❤${card.hp || 0}`;
+                    }
+
+                    slot.appendChild(img);
+                    slot.appendChild(name);
+                    slot.appendChild(tag);
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-text';
+                    empty.textContent = '空';
+                    slot.appendChild(empty);
+                }
+
+                grid.appendChild(slot);
+            });
+        }
+
+        // ----- 动作渲染 -----
+        renderAction(step) {
+            const info = this.elements.actionInfo;
+            const type = step.type || 'unknown';
+            const details = step.details || {};
+
+            const typeMap = {
+                'init': '🎬 初始化',
+                'refresh': '🔄 刷新商店',
+                'levelUp': '⬆ 升级营帐',
+                'lock': '🔒 锁定/解锁',
+                'buy': '🛒 购买',
+                'sell': '💰 遣散',
+                'lineup': '⚔ 上阵',
+                'useSpell': '📜 使用锦囊',
+                'followUp': '🔗 随征',
+                'gameOver': '🏁 游戏结束'
+            };
+
+            const typeText = typeMap[type] || `❓ ${type}`;
+
+            let detailText = '';
+            switch (type) {
+                case 'buy':
+                    detailText = `goodsID: ${details.goodsID || '?'}, 位置: ${(details.slotIndex || 0) + 1}`;
+                    break;
+                case 'sell':
+                    detailText = `goodsID: ${details.goodsID || '?'}`;
+                    break;
+                case 'lineup':
+                    detailText = `位置: ${details.position || '?'}`;
+                    break;
+                case 'useSpell':
+                    detailText = `goodsID: ${details.goodsID || '?'}, spellID: ${details.spellID || '?'}`;
+                    break;
+                case 'followUp':
+                    detailText = `目标: ${details.targetGoodsID || '?'}, 随征: ${details.followUpGoodsID || '?'}`;
+                    break;
+                case 'refresh':
+                    detailText = `消耗: ${details.cost || 0}${details.isAuto ? ' (自动)' : ''}`;
+                    break;
+                case 'levelUp':
+                    detailText = `消耗: ${details.cost || 0}, 新等级: ${details.newLevel || '?'}`;
+                    break;
+                case 'lock':
+                    detailText = `新状态: ${details.newState ? '🔒 锁定' : '🔓 解锁'}`;
+                    break;
+                default:
+                    detailText = '';
+            }
+
+            info.innerHTML = `
+                <span class="action-type">${typeText}</span>
+                ${detailText ? `<span class="action-detail">${detailText}</span>` : ''}
+                <span style="color:#4a6a8a;font-size:12px;margin-left:12px;">
+                    ${step.time ? new Date(step.time).toLocaleTimeString() : ''}
+                </span>
+            `;
+        }
+
+        // ============================================================
+        // 工具方法
+        // ============================================================
+
+        getCardName(chessId, spellId) {
+            if (spellId) {
+                return '📜 锦囊';
+            }
+            const name = CHESS_NAME_MAP[chessId];
+            if (name) return name;
+            // 尝试从chessId推断
+            const idStr = String(chessId);
+            if (idStr.length >= 5) {
+                const prefix = idStr.substring(0, 5);
+                // 如果是金卡 (以2结尾)
+                if (idStr.endsWith('2')) {
+                    return `✨ ${CHESS_NAME_MAP[parseInt(prefix + '1')] || '?'}`;
+                }
+            }
+            return `武将 ${chessId}`;
+        }
+    }
+
+    // ============================================================
+    // 启动
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.replayer = new TavernChessReplayer();
+    });
+
+    // ============================================================
+    // 支持内嵌数据 (用于调试)
+    // ============================================================
+
+    // 如果需要内嵌数据，可以在这里粘贴 JSON 数据
+    // window.EMBEDDED_DATA = { ... };
+</script>
+
+</body>
+</html>

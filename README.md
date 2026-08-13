@@ -27,3 +27,9 @@
    - 上阵卡牌：具体上阵卡牌的goodsId/chessId？
    - 使用锦囊：具体使用的锦囊goodsId/spellId
    - 随征卡牌：将随征卡(goodsId/chessId)附着到上阵区域的卡牌(goodsId/chessId)
+
+---
+
+## 260813更新
+
+- TickRecord.html: 根据tick数据复原游戏录像，暂未没有上传所有卡牌的图片，可在 [https://github.com/caoyang-sufe/TavernChessCodex/tree/main/assets](https://github.com/caoyang-sufe/TavernChessCodex/tree/main/assets) 下找到相关图片的历史备份
