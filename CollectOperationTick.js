@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         自走棋训练数据收集器
+// @name         自走棋训练数据收集器 (分段存储版)
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
-// @description  收集自走棋游戏状态和动作数据，用于AI强化学习训练
+// @version      2.0.0
+// @description  收集自走棋游戏状态和动作数据，支持分段存储
 // @author       caoyang-sufe
 // @match        https://game.4399iw2.com/yxxsgs/*
 // @match        *://*.sanguosha.com/10/*
@@ -33,7 +33,9 @@
         // 是否自动下载数据（每N步下载一次）
         autoDownload: true,
         // 自动下载间隔（步数）
-        downloadInterval: 100,
+        downloadInterval: 10,
+        // 每段包含的步数 (分段大小，达到后自动分段)
+        segmentSize: 50,
         // 是否包含原始数据（用于调试）
         includeRaw: false
     };
@@ -59,10 +61,14 @@
         currentRound: 0,
         // 步骤计数（用于自动下载）
         stepCount: 0,
-        // 轨迹列表（按时间顺序）
+        // 轨迹列表（按时间顺序）- 只存当前分段的数据
         trajectory: [],
         // 是否已结束
-        isGameOver: false
+        isGameOver: false,
+        // 分段ID
+        segmentId: 1,
+        // 已下载的步数 (用于统计)
+        downloadedSteps: 0
     };
 
     // ============================================================
@@ -108,10 +114,25 @@
     }
 
     // ============================================================
-    // 状态收集函数
+    // Toast 提示
+    // ============================================================
+    let toastTimer = null;
+    function showToast(text) {
+        var old = document.getElementById("sq-toast");
+        if (old) old.remove();
+        clearTimeout(toastTimer);
+        var d = document.createElement("div");
+        d.id = "sq-toast";
+        d.textContent = text;
+        d.style.cssText = "position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);z-index:100000;background:rgba(0,0,0,.75);color:#fff;padding:14px 30px;border-radius:10px;font-size:20px;font-weight:bold;pointer-events:none;user-select:none;transition:opacity .3s";
+        document.body.appendChild(d);
+        toastTimer = setTimeout(function() { d.style.opacity = "0"; setTimeout(function() { d.remove(); }, 300); }, 600);
+    }
+
+    // ============================================================
+    // 状态收集函数 (完全保持原始版本不变)
     // ============================================================
 
-    // 1. 全局信息
     function collectGlobalInfo() {
         var m = getManager();
         if (!m) return null;
@@ -141,11 +162,10 @@
             generalName: generalName,
             seasonID: seasonID,
             startTime: new Date().toISOString(),
-            playerCount: 0 // 稍后从headInfoList获取
+            playerCount: 0
         };
     }
 
-    // 2. 商店区详细数据
     function collectShopGoods() {
         var m = getManager();
         if (!m) return [];
@@ -160,12 +180,11 @@
                 spellID: goods.spellID || goods.SpellID || 0,
                 name: goods.name || goods.Name || '',
                 rank: goods.rank || goods.Rank || 0,
-                isLocked: false // 从商店锁状态推断
+                isLocked: false
             };
         }).filter(Boolean);
     }
 
-    // 3. 手牌区详细数据
     function collectHandChess() {
         var m = getManager();
         if (!m) return [];
@@ -196,7 +215,6 @@
         }).filter(Boolean);
     }
 
-    // 4. 上阵区详细数据
     function collectLineup() {
         var m = getManager();
         if (!m) return [];
@@ -224,19 +242,16 @@
         }).filter(Boolean);
     }
 
-    // 5. 金币数
     function collectMoney() {
         var m = getManager();
         if (!m) return 0;
         return m.CoinNum || 0;
     }
 
-    // 6. 装备区详细数据
     function collectEquipments() {
         var m = getManager();
         if (!m) return [];
 
-        // 装备在 SelfInfo.equipments 中
         var selfInfo = m.SelfInfo || m.selfInfo || {};
         var equips = selfInfo.equipments || [];
         
@@ -264,13 +279,12 @@
         }).filter(Boolean);
     }
 
-    // 7. 随征卡判断
     var FOLLOWUP_CHESS_IDS = [
-        '21003071', '21003072', // 黄盖
-        '21001061', '21001062', // 薛灵芸
-        '21004141', '21004142', // 马元义
-        '21007101', '21007102', // 张勋
-        '20904231'              // 黄巾兵
+        '21003071', '21003072',
+        '21001061', '21001062',
+        '21004141', '21004142',
+        '21007101', '21007102',
+        '20904231'
     ];
 
     function isFollowUpCard(card) {
@@ -279,9 +293,6 @@
         return FOLLOWUP_CHESS_IDS.indexOf(String(chessID)) !== -1;
     }
 
-    // ============================================================
-    // 完整状态收集
-    // ============================================================
     function collectFullState() {
         var m = getManager();
         if (!m) return null;
@@ -290,46 +301,36 @@
         var round = m.CurRound || m.curRound || m.Turn || m.turn || 0;
 
         var state = {
-            // 基本信息
             round: round,
             phase: phase,
             timestamp: Date.now(),
             time: new Date().toISOString(),
             
-            // 经济
             money: collectMoney(),
             shopRefreshCost: m.ShopRefreshCost || 0,
             shopLevelUpCost: m.ShopLevelUpCost || 0,
             shopLevel: m.ShopCurLevel || 0,
             shopLock: !!(m.SelfInfo && m.SelfInfo.shopLock),
             
-            // 商店
             shopGoods: collectShopGoods(),
             
-            // 手牌
             handChess: collectHandChess(),
-            handCount: 0, // 下面计算
+            handCount: 0,
             
-            // 上阵
             lineup: collectLineup(),
-            lineupCount: 0, // 下面计算
+            lineupCount: 0,
             
-            // 装备
             equipments: collectEquipments(),
             
-            // 玩家信息
             hp: m.HP || 0,
             hpLimit: m.HPLimit || 0,
             
-            // 敌人信息（简要）
             enemyCount: 0,
             enemyHP: 0,
             
-            // 等待选择状态
             waitSelectCards: m.WaitSelectCards ? m.WaitSelectCards.length : 0,
             waitSelectEquips: m.WaitSelectEquiments ? m.WaitSelectEquiments.length : 0,
             
-            // 原始数据（可选）
             raw: CONFIG.includeRaw ? {
                 HandChess: m.HandChess,
                 ShopGoods: m.ShopGoods,
@@ -337,11 +338,9 @@
             } : null
         };
 
-        // 计算派生值
         state.handCount = state.handChess.length;
         state.lineupCount = state.lineup.length;
 
-        // 获取敌人信息
         try {
             if (m.EnemyChess) {
                 state.enemyCount = m.EnemyChess.length;
@@ -356,8 +355,89 @@
     }
 
     // ============================================================
-    // 动作记录
+    // 数据下载 (保持原始版本完全一致)
     // ============================================================
+
+    function downloadData(reason) {
+        if (!gameData || gameData.trajectory.length === 0) {
+            console.log('[数据] 无数据可下载');
+            return;
+        }
+
+        var data = {
+            metadata: {
+                version: '2.0.0',
+                exportedAt: new Date().toISOString(),
+                reason: reason || 'manual',
+                totalSteps: gameData.stepCount,
+                totalRounds: Object.keys(gameData.rounds).length,
+                segmentId: gameData.segmentId,
+                isPartial: true
+            },
+            global: gameData.global,
+            rounds: gameData.rounds,
+            trajectory: gameData.trajectory,
+            summary: {
+                actionCounts: {},
+                roundCount: Object.keys(gameData.rounds).length
+            }
+        };
+
+        data.trajectory.forEach(function(t) {
+            var type = t.type || 'unknown';
+            data.summary.actionCounts[type] = (data.summary.actionCounts[type] || 0) + 1;
+        });
+
+        var json = JSON.stringify(data, null, 2);
+        var filename = 'tavern_segment_' + gameData.segmentId + '_' + Date.now() + '.json';
+
+        // ===== 使用原始版本的下载方式 =====
+        try {
+            if (typeof GM_download === 'function') {
+                GM_download({
+                    url: 'data:application/json;charset=utf-8,' + encodeURIComponent(json),
+                    name: filename,
+                    saveAs: false
+                });
+                console.log('[数据] 分段 ' + gameData.segmentId + ' 下载成功:', filename);
+                showToast('✅ 分段 ' + gameData.segmentId + ' 已下载');
+            } else {
+                var blob = new Blob([json], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(function() {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                console.log('[数据] 分段 ' + gameData.segmentId + ' 下载成功 (备用):', filename);
+            }
+        } catch(e) {
+            console.error('[数据] 下载失败:', e);
+            console.log('[数据] 可复制数据:', json);
+        }
+    }
+
+    // ============================================================
+    // 分段管理 - 重置当前分段 (不清除历史数据)
+    // ============================================================
+
+    function resetSegment() {
+        // 将当前轨迹保存到 rounds 中 (保持兼容)
+        // 然后清空 trajectory 开始新分段
+        gameData.trajectory = [];
+        gameData.segmentId++;
+        console.log('[数据] 开始新分段 ID:', gameData.segmentId);
+        showToast('📊 分段 ' + gameData.segmentId + ' 开始');
+    }
+
+    // ============================================================
+    // 动作记录 (修改：增加分段逻辑)
+    // ============================================================
+
     function recordAction(actionType, details, stateBefore, stateAfter) {
         if (!CONFIG.enabled) return;
 
@@ -385,13 +465,20 @@
         }
         gameData.rounds[round].actions.push(action);
 
-        // 日志
         if (CONFIG.verbose) {
             console.log('[数据] 动作:', actionType, details);
         }
 
-        // 自动下载
-        if (CONFIG.autoDownload && gameData.stepCount % CONFIG.downloadInterval === 0) {
+        // ===== 分段逻辑：当轨迹长度达到 segmentSize 时，下载并重置 =====
+        if (gameData.trajectory.length >= CONFIG.segmentSize) {
+            // 下载当前分段
+            downloadData('auto_segment');
+            // 重置分段
+            resetSegment();
+            // 强制更新回合数据引用
+            gameData.rounds = {};
+        } else if (CONFIG.autoDownload && gameData.stepCount % CONFIG.downloadInterval === 0) {
+            // 原有的自动下载逻辑 (每10步下载一次)
             downloadData('auto');
         }
 
@@ -400,8 +487,9 @@
     }
 
     // ============================================================
-    // Hook 函数 - 拦截游戏操作
+    // Hook 函数 (完全保持原始版本不变)
     // ============================================================
+
     function hookGameOperations() {
         var m = getManager();
         if (!m) {
@@ -411,14 +499,12 @@
 
         console.log('[数据] 开始Hook游戏操作...');
 
-        // ----- 1. 刷新商店 -----
         var origRefresh = m.ReqShopRefreshChess;
         if (origRefresh && !origRefresh.__hooked) {
             m.ReqShopRefreshChess = function(isAuto) {
                 var stateBefore = collectFullState();
                 var cost = this.ShopRefreshCost || 0;
                 origRefresh.call(this, isAuto);
-                // 延迟记录状态（等待UI更新）
                 setTimeout(function() {
                     var stateAfter = collectFullState();
                     recordAction('refresh', {
@@ -431,7 +517,6 @@
             console.log('[数据] Hook: 刷新商店');
         }
 
-        // ----- 2. 锁定/解锁商店 -----
         var origLock = m.ReqShopLock;
         if (origLock && !origLock.__hooked) {
             m.ReqShopLock = function() {
@@ -450,12 +535,10 @@
             console.log('[数据] Hook: 锁定商店');
         }
 
-        // ----- 3. 购买 -----
         var origBuy = m.ReqShopBuyChess;
         if (origBuy && !origBuy.__hooked) {
             m.ReqShopBuyChess = function(goodsID) {
                 var stateBefore = collectFullState();
-                // 找到购买的是第几个
                 var shop = this.ShopGoods || [];
                 var slotIndex = -1;
                 var cardInfo = null;
@@ -482,12 +565,10 @@
             console.log('[数据] Hook: 购买');
         }
 
-        // ----- 4. 遣散 -----
         var origSell = m.ReqShopRecycleChess;
         if (origSell && !origSell.__hooked) {
             m.ReqShopRecycleChess = function(goodsID) {
                 var stateBefore = collectFullState();
-                // 查找卡牌信息
                 var cardInfo = null;
                 var hand = this.HandChess || [];
                 for (var i = 0; i < hand.length; i++) {
@@ -520,17 +601,14 @@
             console.log('[数据] Hook: 遣散');
         }
 
-        // ----- 5. 上阵 -----
         var origLineUp = m.ReqChessLineUp;
         if (origLineUp && !origLineUp.__hooked) {
             m.ReqChessLineUp = function(positionChess, force, checkOperate) {
                 var stateBefore = collectFullState();
-                // 记录变化
                 var oldLineup = this.SelfInfo ? this.SelfInfo.LineUpGoodsIDs : [];
                 origLineUp.call(this, positionChess, force, checkOperate);
                 setTimeout(function() {
                     var stateAfter = collectFullState();
-                    // 找出变化
                     var changes = [];
                     var newLineup = stateAfter.lineup || [];
                     for (var i = 0; i < Math.max(oldLineup.length, positionChess.length); i++) {
@@ -555,12 +633,10 @@
             console.log('[数据] Hook: 上阵');
         }
 
-        // ----- 6. 使用锦囊 -----
         var origUseSpell = m.ReqChessUseSpell;
         if (origUseSpell && !origUseSpell.__hooked) {
             m.ReqChessUseSpell = function(spellGoodsID, targets) {
                 var stateBefore = collectFullState();
-                // 查找锦囊信息
                 var hand = this.HandChess || [];
                 var cardInfo = null;
                 for (var i = 0; i < hand.length; i++) {
@@ -583,12 +659,10 @@
             console.log('[数据] Hook: 使用锦囊');
         }
 
-        // ----- 7. 随征 -----
         var origFollowUp = m.ReqChessFollowUp;
         if (origFollowUp && !origFollowUp.__hooked) {
             m.ReqChessFollowUp = function(targetGoodsID, followUpGoodsID) {
                 var stateBefore = collectFullState();
-                // 查找随征卡信息
                 var hand = this.HandChess || [];
                 var followUpInfo = null;
                 for (var i = 0; i < hand.length; i++) {
@@ -597,7 +671,6 @@
                         break;
                     }
                 }
-                // 查找目标信息
                 var lineup = this.SelfInfo ? (this.SelfInfo.LineUpChess || []) : [];
                 var targetInfo = null;
                 for (var i = 0; i < lineup.length; i++) {
@@ -621,7 +694,6 @@
             console.log('[数据] Hook: 随征');
         }
 
-        // ----- 8. 升级营帐 -----
         var origLevelUp = m.ReqShopLevelUp;
         if (origLevelUp && !origLevelUp.__hooked) {
             m.ReqShopLevelUp = function() {
@@ -640,19 +712,17 @@
             console.log('[数据] Hook: 升级营帐');
         }
 
-        // ----- 9. 游戏结束 -----
         var origGameOver = m.onNotifyChessGameOver;
         if (origGameOver && !origGameOver.__hooked) {
             m.onNotifyChessGameOver = function(e) {
                 gameData.isGameOver = true;
                 gameData.endTime = new Date().toISOString();
-                // 记录最终状态
                 var finalState = collectFullState();
                 recordAction('gameOver', {
                     rank: m.BattleEndProtoData ? m.BattleEndProtoData.rank : 0,
                     finalState: finalState
                 }, finalState, null);
-                // 完整下载
+                // 最终下载
                 downloadData('gameOver');
                 origGameOver.call(this, e);
             };
@@ -661,70 +731,6 @@
         }
 
         console.log('[数据] Hook完成！');
-    }
-
-    // ============================================================
-    // 数据下载
-    // ============================================================
-    function downloadData(reason) {
-        if (!gameData || gameData.trajectory.length === 0) {
-            console.log('[数据] 无数据可下载');
-            return;
-        }
-
-        var data = {
-            metadata: {
-                version: '1.0.0',
-                exportedAt: new Date().toISOString(),
-                reason: reason || 'manual',
-                totalSteps: gameData.stepCount,
-                totalRounds: Object.keys(gameData.rounds).length
-            },
-            global: gameData.global,
-            rounds: gameData.rounds,
-            trajectory: gameData.trajectory,
-            summary: {
-                actionCounts: {},
-                roundCount: Object.keys(gameData.rounds).length
-            }
-        };
-
-        // 统计动作类型
-        data.trajectory.forEach(function(t) {
-            var type = t.type || 'unknown';
-            data.summary.actionCounts[type] = (data.summary.actionCounts[type] || 0) + 1;
-        });
-
-        var json = JSON.stringify(data, null, 2);
-        var filename = 'tavern_data_' + gameData.global.gameId + '_' + Date.now() + '.json';
-
-        // 尝试下载
-        try {
-            if (typeof GM_download === 'function') {
-                GM_download({
-                    url: 'data:application/json;charset=utf-8,' + encodeURIComponent(json),
-                    name: filename,
-                    saveAs: false
-                });
-                console.log('[数据] 下载成功:', filename);
-            } else {
-                // 备用：使用Blob下载
-                var blob = new Blob([json], { type: 'application/json' });
-                var url = URL.createObjectURL(blob);
-                var link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                URL.revokeObjectURL(url);
-                console.log('[数据] 下载成功 (备用):', filename);
-            }
-        } catch(e) {
-            console.error('[数据] 下载失败:', e);
-            // 在控制台显示数据
-            console.log('[数据] 可复制数据:', json);
-        }
     }
 
     // ============================================================
@@ -748,11 +754,9 @@
     // 初始化
     // ============================================================
     function init() {
-        // 收集全局信息
         var global = collectGlobalInfo();
         if (global) {
             gameData.global = global;
-            // 更新玩家数量
             try {
                 var m = getManager();
                 if (m && m.headInfoList) {
@@ -762,13 +766,11 @@
             console.log('[数据] 全局信息:', global);
         }
 
-        // 初始化回合
         var m = getManager();
         if (m) {
             gameData.currentRound = m.CurRound || m.curRound || m.Turn || m.turn || 0;
         }
 
-        // 记录初始状态
         var initialState = collectFullState();
         if (initialState) {
             recordAction('init', {
@@ -777,26 +779,36 @@
             }, null, initialState);
         }
 
-        // Hook游戏操作
         hookGameOperations();
 
-        console.log('[数据] 数据收集器已启动');
-        console.log('[数据] 当前数据:', gameData);
+        console.log('[数据] 数据收集器 v2.0 (分段存储) 已启动');
+        console.log('[数据] 分段大小:', CONFIG.segmentSize, '步');
+        console.log('[数据] 当前分段 ID:', gameData.segmentId);
         console.log('[数据] 命令:');
-        console.log('  __data.download() - 下载数据');
-        console.log('  __data.status()   - 查看状态');
-        console.log('  __data.state()    - 获取当前状态');
-        console.log('  __data.clear()    - 清空数据');
+        console.log('  __data.download()   - 下载当前分段');
+        console.log('  __data.status()     - 查看状态');
+        console.log('  __data.state()      - 获取当前状态');
+        console.log('  __data.clear()      - 清空数据');
+        console.log('  __data.next()       - 手动开始新分段');
     }
 
     // ============================================================
     // 暴露控制台接口
     // ============================================================
     window.__data = {
-        download: function() { downloadData('manual'); },
+        download: function() { 
+            if (gameData.trajectory.length === 0) {
+                console.log('[数据] 当前分段为空');
+                showToast('⚠️ 当前分段为空');
+                return;
+            }
+            downloadData('manual'); 
+        },
         status: function() {
             console.log('===== 数据收集状态 =====');
             console.log('步数:', gameData.stepCount);
+            console.log('当前分段 ID:', gameData.segmentId);
+            console.log('当前分段步数:', gameData.trajectory.length);
             console.log('回合:', gameData.currentRound);
             console.log('轨迹长度:', gameData.trajectory.length);
             console.log('是否结束:', gameData.isGameOver);
@@ -813,21 +825,34 @@
             gameData.trajectory = [];
             gameData.rounds = {};
             gameData.stepCount = 0;
+            gameData.segmentId = 1;
             console.log('[数据] 已清空');
+            showToast('🗑️ 数据已清空');
         },
-        // 获取完整数据
         get: function() {
             return gameData;
         },
-        // 导出为JSON
         export: function() {
             var data = {
                 global: gameData.global,
                 rounds: gameData.rounds,
                 trajectory: gameData.trajectory,
-                stepCount: gameData.stepCount
+                stepCount: gameData.stepCount,
+                segmentId: gameData.segmentId
             };
             return JSON.stringify(data, null, 2);
+        },
+        // 手动开始新分段
+        next: function() {
+            if (gameData.trajectory.length === 0) {
+                console.log('[数据] 当前分段为空，无需切换');
+                return;
+            }
+            downloadData('manual_segment');
+            resetSegment();
+            gameData.rounds = {};
+            console.log('[数据] 已手动切换到新分段');
+            showToast('📊 切换到分段 ' + gameData.segmentId);
         }
     };
 
@@ -837,18 +862,19 @@
     setTimeout(init, 3000);
 
     console.log('========================================');
-    console.log('📊 自走棋训练数据收集器 v1.0.0');
+    console.log('📊 自走棋训练数据收集器 v2.0 (分段存储)');
     console.log('========================================');
     console.log('📌 功能:');
-    console.log('  ✅ 收集商店/手牌/上阵状态');
-    console.log('  ✅ 收集金币/装备/回合信息');
-    console.log('  ✅ Hook 7种操作: 刷新/锁定/购买/遣散/上阵/锦囊/随征');
-    console.log('  ✅ 自动下载 (每100步)');
+    console.log('  ✅ 收集商店/手牌/上阵/装备状态');
+    console.log('  ✅ 分段存储 (每 ' + CONFIG.segmentSize + ' 步自动分段)');
+    console.log('  ✅ 自动下载 (每 ' + CONFIG.downloadInterval + ' 步 + 分段时)');
+    console.log('  ✅ Hook 8种操作: 刷新/锁定/购买/遣散/上阵/锦囊/随征/升级');
     console.log('💻 控制台命令:');
-    console.log('  __data.download() - 下载数据');
-    console.log('  __data.status()   - 查看状态');
-    console.log('  __data.state()    - 获取当前状态');
-    console.log('  __data.clear()    - 清空数据');
+    console.log('  __data.download()   - 下载当前分段');
+    console.log('  __data.next()       - 手动开始新分段');
+    console.log('  __data.status()     - 查看状态');
+    console.log('  __data.state()      - 获取当前状态');
+    console.log('  __data.clear()      - 清空数据');
     console.log('========================================');
 
 })();

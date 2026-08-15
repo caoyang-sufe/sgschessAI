@@ -219,3 +219,6 @@ __marimo__/
 
 # Jupyter
 jupyter/
+
+# Temporary File
+*-tmp.*
