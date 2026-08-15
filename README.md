@@ -4,7 +4,7 @@
 
 目前项目处于demo阶段，提供三个文件：
 
-- `CollectOperationTick.js`: 用于游戏中收集tick级别状态动作数据的篡改猴脚本
+- `CollectOperationTick.js`: 用于游戏中收集tick级别状态动作数据的篡改猴脚本，目前实现为分段下载，减小缓存压力和空间占用
 - `tavern_data_sample.json`: 实际测试的tick级别状态动作数据样例
 - `train_demo.py`: torch + TRL 框架的训练示例脚本
 
