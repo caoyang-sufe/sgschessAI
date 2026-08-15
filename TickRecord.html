@@ -3,1134 +3,884 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三国杀自走棋 - 录像回放器</title>
+    <title>自走棋录像回放</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
-            font-family: 'Microsoft YaHei', sans-serif;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
             background: #1a1a2e;
-            color: #e0d5c1;
+            color: #e0d5c0;
             padding: 20px;
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
         }
-
         .container {
             max-width: 1400px;
-            width: 100%;
-            background: linear-gradient(145deg, #16213e, #0f3460);
-            border-radius: 20px;
-            padding: 25px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-            border: 1px solid #2a3a6a;
+            margin: 0 auto;
+            background: #16213e;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
-
-        /* ===== 顶部控制栏 ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #2a3a5e;
+        }
+        .header h1 {
+            font-size: 24px;
+            color: #f0d5a0;
+        }
+        .header .info {
+            font-size: 14px;
+            color: #8a9bb5;
+        }
         .controls {
             display: flex;
             align-items: center;
             gap: 16px;
-            padding: 15px 20px;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 12px;
+            padding: 12px 16px;
+            background: #1a2744;
+            border-radius: 10px;
             margin-bottom: 20px;
             flex-wrap: wrap;
-            border-bottom: 2px solid #2a4a7a;
         }
-
-        .controls .info {
-            font-size: 14px;
-            color: #aac8ff;
-            margin-right: auto;
-        }
-
-        .controls .info span {
-            color: #ffd700;
-            font-weight: bold;
-        }
-
         .controls button {
-            background: linear-gradient(145deg, #2a4a7a, #1a2a5a);
-            border: 1px solid #4a6a9a;
-            color: #e0d5c1;
             padding: 8px 20px;
-            border-radius: 8px;
-            cursor: pointer;
+            border: none;
+            border-radius: 6px;
             font-size: 14px;
-            transition: all 0.3s;
+            cursor: pointer;
+            transition: all 0.2s;
             font-weight: bold;
-            min-width: 70px;
         }
-
         .controls button:hover {
-            background: linear-gradient(145deg, #3a5a8a, #2a3a6a);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(42, 74, 122, 0.4);
+            transform: scale(1.05);
         }
-
-        .controls button:active {
-            transform: translateY(0);
+        .btn-play { background: #4ade80; color: #052e16; }
+        .btn-pause { background: #fbbf24; color: #451a03; }
+        .btn-stop { background: #f87171; color: #450a0a; }
+        .btn-prev { background: #60a5fa; color: #172554; }
+        .btn-next { background: #60a5fa; color: #172554; }
+        .controls .step-info {
+            font-size: 16px;
+            color: #c8bda8;
+            min-width: 140px;
+            text-align: center;
         }
-
-        .controls button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            transform: none;
-        }
-
         .controls .progress-bar {
             flex: 1;
             min-width: 200px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .controls .progress-bar input[type="range"] {
-            flex: 1;
-            -webkit-appearance: none;
             height: 6px;
+            background: #2a3a5e;
             border-radius: 3px;
-            background: linear-gradient(to right, #2a4a7a, #4a8aff);
-            outline: none;
-        }
-
-        .controls .progress-bar input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #4a8aff, #2a5a9a);
+            position: relative;
             cursor: pointer;
-            border: 2px solid #6aaaff;
         }
-
-        .controls .step-info {
-            font-size: 13px;
-            color: #88aadd;
-            min-width: 100px;
-            text-align: center;
+        .controls .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s;
         }
-
-        /* ===== 主游戏区域 ===== */
-        .game-board {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
+        .controls .progress-bar .thumb {
+            position: absolute;
+            top: -6px;
+            width: 16px;
+            height: 16px;
+            background: #c084fc;
+            border-radius: 50%;
+            transform: translateX(-50%);
+            transition: left 0.1s;
         }
-
-        /* ===== 商店区 ===== */
-        .shop-area {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px 20px;
-            border: 1px solid #2a4a6a;
-            min-height: 220px;
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
         }
-
-        .shop-area .area-title {
+        .panel {
+            background: #1a2744;
+            border-radius: 10px;
+            padding: 14px 16px;
+            border: 1px solid #2a3a5e;
+            min-height: 200px;
+        }
+        .panel .panel-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #8a9bb5;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            font-size: 15px;
-            color: #88bbdd;
         }
-
-        .shop-area .area-title .shop-info {
-            font-size: 13px;
-            color: #88aadd;
+        .panel .panel-title .badge {
+            background: #2a3a5e;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #a8b8d0;
         }
-
-        .shop-area .area-title .shop-info span {
-            color: #ffd700;
-            margin: 0 4px;
-        }
-
-        .shop-grid {
+        .card-grid {
             display: flex;
-            gap: 12px;
             flex-wrap: wrap;
-            justify-content: flex-start;
+            gap: 8px;
+            min-height: 100px;
+            align-items: flex-start;
         }
-
-        .shop-slot {
-            width: 140px;
-            height: 190px;
-            background: rgba(20, 30, 60, 0.6);
-            border-radius: 10px;
-            border: 2px solid #2a4a6a;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 8px;
-            transition: all 0.3s;
+        .card-item {
+            width: 72px;
+            text-align: center;
+            background: #0f1a2e;
+            border-radius: 8px;
+            padding: 4px;
+            border: 1px solid #2a3a5e;
+            transition: all 0.2s;
             position: relative;
         }
-
-        .shop-slot.has-card {
-            border-color: #4a8aff;
-            background: rgba(30, 50, 80, 0.6);
+        .card-item:hover {
+            border-color: #60a5fa;
+            transform: translateY(-2px);
         }
-
-        .shop-slot .card-img {
-            width: 100px;
-            height: 130px;
+        .card-item img {
+            width: 64px;
+            height: 88px;
             object-fit: contain;
-            border-radius: 6px;
-            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            background: #0a1220;
+            display: block;
+            margin: 0 auto;
         }
-
-        .shop-slot .card-name {
-            font-size: 12px;
-            color: #aac8ff;
-            margin-top: 4px;
-            text-align: center;
-            max-width: 120px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .shop-slot .card-rank {
-            font-size: 11px;
-            color: #ffd700;
+        .card-item .card-name {
+            font-size: 10px;
+            color: #a8b8d0;
             margin-top: 2px;
-        }
-
-        .shop-slot .empty-text {
-            color: #4a6a8a;
-            font-size: 13px;
-        }
-
-        /* ===== 上阵区 ===== */
-        .lineup-area {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px 20px;
-            border: 1px solid #2a4a6a;
-            min-height: 200px;
-        }
-
-        .lineup-area .area-title {
-            font-size: 15px;
-            color: #88bbdd;
-            margin-bottom: 12px;
-        }
-
-        .lineup-grid {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-        }
-
-        .lineup-slot {
-            width: 110px;
-            height: 150px;
-            background: rgba(20, 30, 60, 0.6);
-            border-radius: 10px;
-            border: 2px solid #2a4a6a;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 6px;
-            transition: all 0.3s;
-        }
-
-        .lineup-slot.has-card {
-            border-color: #66dd88;
-            background: rgba(30, 60, 40, 0.4);
-        }
-
-        .lineup-slot .card-img {
-            width: 80px;
-            height: 104px;
-            object-fit: contain;
-            border-radius: 4px;
-            background: rgba(0, 0, 0, 0.3);
-        }
-
-        .lineup-slot .card-name {
-            font-size: 11px;
-            color: #aac8ff;
-            margin-top: 3px;
-            text-align: center;
-            max-width: 100px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            max-width: 64px;
         }
-
-        .lineup-slot .card-stats {
-            font-size: 10px;
-            color: #88bbdd;
-            margin-top: 1px;
-        }
-
-        /* ===== 手牌区 ===== */
-        .hand-area {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px 20px;
-            border: 1px solid #2a4a6a;
-            min-height: 200px;
-        }
-
-        .hand-area .area-title {
-            font-size: 15px;
-            color: #88bbdd;
-            margin-bottom: 12px;
-        }
-
-        .hand-grid {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-        }
-
-        .hand-slot {
-            width: 100px;
-            height: 140px;
-            background: rgba(20, 30, 60, 0.6);
-            border-radius: 10px;
-            border: 2px solid #2a4a6a;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 6px;
-            transition: all 0.3s;
-        }
-
-        .hand-slot.has-card {
-            border-color: #ffaa44;
-            background: rgba(60, 40, 20, 0.4);
-        }
-
-        .hand-slot .card-img {
-            width: 72px;
-            height: 94px;
-            object-fit: contain;
-            border-radius: 4px;
-            background: rgba(0, 0, 0, 0.3);
-        }
-
-        .hand-slot .card-name {
-            font-size: 10px;
-            color: #aac8ff;
-            margin-top: 3px;
-            text-align: center;
-            max-width: 90px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .hand-slot .card-tag {
-            font-size: 9px;
-            padding: 1px 6px;
+        .card-item .card-id {
+            font-size: 8px;
+            color: #5a6a85;
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            background: rgba(0,0,0,0.6);
+            padding: 0 4px;
             border-radius: 3px;
-            margin-top: 2px;
         }
-
-        .hand-slot .tag-spell {
-            background: #6a3a8a;
-            color: #ddbbff;
+        .card-item .card-rank {
+            position: absolute;
+            bottom: 16px;
+            left: 4px;
+            font-size: 10px;
+            color: #fbbf24;
+            background: rgba(0,0,0,0.6);
+            padding: 0 4px;
+            border-radius: 3px;
         }
-
-        .hand-slot .tag-followup {
-            background: #8a6a2a;
-            color: #ffdd88;
+        .card-item .card-stats {
+            font-size: 8px;
+            color: #6a8a9a;
+            display: flex;
+            justify-content: center;
+            gap: 6px;
         }
-
-        /* ===== 动作信息 ===== */
-        .action-info {
-            margin-top: 15px;
-            padding: 12px 20px;
-            background: rgba(0, 0, 0, 0.4);
+        .card-item .card-stats span { background: #0a1220; padding: 0 4px; border-radius: 2px; }
+        .card-empty {
+            color: #3a4a5e;
+            font-size: 13px;
+            padding: 20px;
+            text-align: center;
+            width: 100%;
+        }
+        .action-panel {
+            background: #1a2744;
             border-radius: 10px;
-            border-left: 4px solid #4a8aff;
-            font-size: 14px;
-            color: #aac8ff;
-            min-height: 50px;
+            padding: 14px 20px;
+            border: 1px solid #2a3a5e;
+            margin-top: 4px;
         }
+        .action-panel .action-label {
+            font-size: 13px;
+            color: #8a9bb5;
+        }
+        .action-panel .action-desc {
+            font-size: 18px;
+            font-weight: bold;
+            color: #f0d5a0;
+            margin-top: 4px;
+        }
+        .action-panel .action-details {
+            font-size: 13px;
+            color: #a8b8d0;
+            margin-top: 4px;
+            font-family: monospace;
+        }
+        .action-type-badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-refresh { background: #3b82f6; color: #fff; }
+        .badge-levelUp { background: #8b5cf6; color: #fff; }
+        .badge-buy { background: #22c55e; color: #fff; }
+        .badge-sell { background: #ef4444; color: #fff; }
+        .badge-lineup { background: #f59e0b; color: #fff; }
+        .badge-useSpell { background: #ec4899; color: #fff; }
+        .badge-lock { background: #6b7280; color: #fff; }
+        .badge-followUp { background: #14b8a6; color: #fff; }
+        .badge-init { background: #64748b; color: #fff; }
+        .badge-gameOver { background: #dc2626; color: #fff; }
 
-        .action-info .action-type {
-            color: #ffd700;
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 8px 0;
+            font-size: 13px;
+            color: #8a9bb5;
+            border-top: 1px solid #1a2744;
+            margin-top: 8px;
+        }
+        .status-bar .stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .status-bar .stat .val {
+            color: #f0d5a0;
             font-weight: bold;
         }
 
-        .action-info .action-detail {
-            color: #88bbdd;
-            margin-left: 8px;
+        @media (max-width: 1024px) {
+            .main-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 700px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .controls .step-info { text-align: center; }
         }
 
-        /* ===== 响应式 ===== */
-        @media (max-width: 768px) {
-            .container {
-                padding: 12px;
-            }
-            .shop-slot {
-                width: 100px;
-                height: 140px;
-            }
-            .shop-slot .card-img {
-                width: 72px;
-                height: 94px;
-            }
-            .lineup-slot {
-                width: 80px;
-                height: 110px;
-            }
-            .lineup-slot .card-img {
-                width: 60px;
-                height: 78px;
-            }
-            .hand-slot {
-                width: 75px;
-                height: 105px;
-            }
-            .hand-slot .card-img {
-                width: 54px;
-                height: 70px;
-            }
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .controls .progress-bar {
-                flex-direction: column;
-            }
-        }
-
-        /* ===== 滚动条美化 ===== */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1a1a2e;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #4a6a9a;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #5a7aaa;
-        }
-
-        /* ===== 加载状态 ===== */
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #88aadd;
-            font-size: 18px;
-        }
-
-        .loading .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 4px solid #2a4a6a;
-            border-top-color: #4a8aff;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #0f1a2e; }
+        ::-webkit-scrollbar-thumb { background: #3a4a6e; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5a6a8e; }
     </style>
 </head>
 <body>
-
-<div class="container" id="app">
-    <!-- 顶部控制栏 -->
-    <div class="controls">
-        <div class="info">
-            🏆 回合 <span id="roundDisplay">0</span> | 
-            步数 <span id="stepDisplay">0</span>/<span id="totalSteps">0</span>
+    <div class="container">
+        <div class="header">
+            <h1>♟ 自走棋录像回放</h1>
+            <div class="info" id="fileInfo">未加载数据</div>
         </div>
-        <button id="btnFirst" title="跳转到第一步">⏮</button>
-        <button id="btnPrev" title="上一步">◀</button>
-        <button id="btnPlay" title="播放/暂停">▶</button>
-        <button id="btnNext" title="下一步">▶</button>
-        <button id="btnLast" title="跳转到最后一步">⏭</button>
-        <div class="progress-bar">
-            <input type="range" id="stepSlider" min="0" max="0" value="0">
-            <span class="step-info" id="stepInfo">0 / 0</span>
-        </div>
-        <button id="btnSpeed" title="播放速度">1x</button>
-    </div>
 
-    <!-- 游戏面板 -->
-    <div class="game-board" id="gameBoard">
-        <!-- 商店区 -->
-        <div class="shop-area">
-            <div class="area-title">
-                <span>🏪 商店</span>
-                <div class="shop-info">
-                    等级: <span id="shopLevel">0</span> | 
-                    金币: <span id="shopMoney">0</span> | 
-                    刷新费: <span id="shopRefreshCost">0</span>
-                </div>
+        <!-- 控制栏 -->
+        <div class="controls">
+            <button class="btn-prev" onclick="prevStep()">◀ 上一步</button>
+            <button id="playBtn" class="btn-play" onclick="togglePlay()">▶ 播放</button>
+            <button class="btn-next" onclick="nextStep()">下一步 ▶</button>
+            <button class="btn-stop" onclick="resetPlay()">⏹ 重置</button>
+            <span class="step-info" id="stepInfo">步骤 0 / 0</span>
+            <div class="progress-bar" id="progressBar" onclick="clickProgress(event)">
+                <div class="fill" id="progressFill"></div>
+                <div class="thumb" id="progressThumb"></div>
             </div>
-            <div class="shop-grid" id="shopGrid"></div>
+            <div style="font-size:13px;color:#6a7a95;">
+                <label>速度: <select id="speedSelect" onchange="setSpeed(this.value)">
+                    <option value="500">1x</option>
+                    <option value="300">2x</option>
+                    <option value="150">4x</option>
+                    <option value="70">8x</option>
+                </select></label>
+            </div>
         </div>
 
-        <!-- 上阵区 -->
-        <div class="lineup-area">
-            <div class="area-title">⚔️ 上阵区 (<span id="lineupCount">0</span> 个)</div>
-            <div class="lineup-grid" id="lineupGrid"></div>
-        </div>
-
-        <!-- 手牌区 -->
-        <div class="hand-area">
-            <div class="area-title">🃏 手牌区 (<span id="handCount">0</span> 张)</div>
-            <div class="hand-grid" id="handGrid"></div>
+        <!-- 主区域 -->
+        <div class="main-grid">
+            <!-- 商店区 -->
+            <div class="panel">
+                <div class="panel-title">
+                    🏪 商店区
+                    <span class="badge" id="shopCount">0 张</span>
+                </div>
+                <div class="card-grid" id="shopGrid"></div>
+            </div>
+            <!-- 手牌区 -->
+            <div class="panel">
+                <div class="panel-title">
+                    🃏 手牌区
+                    <span class="badge" id="handCount">0 张</span>
+                </div>
+                <div class="card-grid" id="handGrid"></div>
+            </div>
+            <!-- 上阵区 -->
+            <div class="panel">
+                <div class="panel-title">
+                    ⚔️ 上阵区
+                    <span class="badge" id="lineupCount">0 张</span>
+                </div>
+                <div class="card-grid" id="lineupGrid"></div>
+            </div>
         </div>
 
         <!-- 动作信息 -->
-        <div class="action-info" id="actionInfo">
-            <span style="color: #4a6a8a;">就绪</span>
+        <div class="action-panel">
+            <div class="action-label">📋 当前操作</div>
+            <div class="action-desc" id="actionDesc">等待开始...</div>
+            <div class="action-details" id="actionDetails"></div>
+            <div class="status-bar">
+                <span class="stat">💰 金币: <span class="val" id="statMoney">0</span></span>
+                <span class="stat">🏰 营帐等级: <span class="val" id="statLevel">0</span></span>
+                <span class="stat">❤️ 血量: <span class="val" id="statHp">0</span></span>
+                <span class="stat">🔄 刷新消耗: <span class="val" id="statRefreshCost">0</span></span>
+                <span class="stat">📈 升级消耗: <span class="val" id="statLevelCost">0</span></span>
+                <span class="stat">🔒 锁定: <span class="val" id="statLock">否</span></span>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-    // ============================================================
-    // 录像回放器 - 核心逻辑
-    // ============================================================
-
-    /**
-     * 卡牌名称映射 (基于chessId)
-     * 由于没有完整的卡牌数据，这里提供部分映射，实际使用时可以扩展
-     */
-    const CHESS_NAME_MAP = {
-        // 魏国
-        21001021: '夏侯惇', 21001011: '曹休',
-        21001031: '邓艾', 21001041: '夏侯渊',
-        21001051: '曹轶', 21001061: '薛灵芸',
-        21001071: '典韦', 21001081: '郭嘉',
-        21001091: '许褚', 21001101: '荀彧',
-        21001111: '甄姬', 21001121: '曹仁',
-        21001131: '曹昂', 21001141: '戏志才',
-        21001151: '曹金玉', 21001161: '司马懿',
-        21001171: '张郃', 21001181: '张辽',
-        21001191: '田尚衣', 21001201: '钟会',
-        21001211: '程昱', 21001221: '曹丕',
-        // 蜀国
-        21002021: '张星彩', 21002031: '关银屏',
-        21002041: '关羽', 21002051: '糜竺',
-        21002061: '魏延', 21002071: '刘禅',
-        21002081: '廖化', 21002091: '周仓',
-        21002101: '赵云', 21002111: '关兴',
-        21002121: '徐庶', 21002131: '诸葛亮',
-        21002141: '黄忠', 21002151: '赵襄',
-        21002161: '张飞', 21002171: '庞统',
-        21002181: '黄月英', 21002191: '张苞',
-        21002201: '刘永', 21002211: '法正',
-        21002221: '姜维', 21002231: '秦宓',
-        // 吴国
-        21003011: '吕蒙', 21003021: '陈武',
-        21003031: '陆逊', 21003041: '程普',
-        21003051: '丁奉', 21003061: '凌统',
-        21003071: '黄盖', 21003081: '葛玄',
-        21003091: '周善', 21003101: '徐盛',
-        21003111: '甘宁', 21003121: '太史慈',
-        21003131: '张昭', 21003141: '大乔',
-        21003151: '孙坚', 21003161: '鲁肃',
-        21003171: '孙尚香', 21003191: '孙翎鸾',
-        21003201: '周瑜', 21003211: '孙策',
-        21003221: '小乔', 21003231: '韩当',
-        21003241: '董袭',
-        // 黄巾
-        21004011: '邓茂', 21004021: '眭固',
-        21004031: '陶升', 21004041: '程远志',
-        21004051: '波才', 21004061: '严政',
-        21004071: '何曼', 21004081: '裴元绍',
-        21004091: '刘辟', 21004101: '卜巳',
-        21004111: '张曼成', 21004121: '张闿',
-        21004131: '张燕', 21004141: '马元义',
-        21004151: '白绕', 21004161: '于毒',
-        21004171: '管亥', 21004181: '高升',
-        21004191: '张宝', 21004201: '张楚',
-        21004211: '张宁', 21004221: '张梁',
-        // 汉
-        21005011: '卢植', 21005021: '冯方',
-        21005031: '伏完', 21005041: '董贵人',
-        21005051: '朱儁', 21005061: '刘繇',
-        21005071: '王荣', 21005081: '郭胜',
-        21005091: '皇甫嵩', 21005101: '王允',
-        21005111: '陈登', 21005121: '杨彪',
-        21005131: '万年公主', 21005141: '曹节',
-        21005151: '何进', 21005161: '唐姬',
-        21005171: '张让', 21005181: '赵忠',
-        21005191: '刘辩', 21005201: '何太后',
-        21005211: '刘宏', 21005221: '董承',
-        // 西凉
-        21006011: '马云騄', 21006021: '段煨',
-        21006031: '马休', 21006041: '张横',
-        21006051: '董白', 21006061: '韩遂',
-        21006071: '马伶俐', 21006081: '董翓',
-        21006091: '华雄', 21006101: '董絮',
-        21006111: '张济', 21006121: '马超',
-        21006131: '徐荣', 21006141: '杨婉',
-        21006151: '庞德', 21006161: '李傕',
-        21006171: '马岱', 21006181: '李肃',
-        21006191: '马铁', 21006201: '樊稠',
-        21006211: '马腾', 21006221: '郭汜',
-        // 袁
-        21007011: '颜良', 21007021: '桥蕤',
-        21007031: '审配', 21007041: '雷薄',
-        21007051: '高览', 21007061: '冯妤',
-        21007071: '许攸', 21007081: '纪灵',
-        21007091: '逢纪', 21007101: '张勋',
-        21007111: '文丑', 21007121: '杨弘',
-        21007131: '乐就', 21007141: '袁胤',
-        21007151: '淳于琼', 21007161: '郭图',
-        21007171: '韩猛', 21007181: '麹义',
-        21007191: '董绾', 21007201: '袁绍',
-        21007211: '袁术', 21007221: '田丰',
-        21007231: '沮授',
-        // 群
-        21008011: '陶谦', 21008021: '邹氏',
-        21008031: '蔡夫人', 21008041: '蔡邕',
-        21008051: '严夫人', 21008061: '士燮',
-        21008071: '吉平', 21008081: '陈珪',
-        21008091: '貂蝉', 21008101: '潘凤',
-        21008111: '司马徽', 21008121: '童渊',
-        21008131: '邢道荣', 21008141: '张鲁',
-        21008151: '胡车儿', 21008161: '管宁',
-        21008171: '韩馥', 21008181: '华佗',
-        21008191: '祢衡', 21008201: '刘表',
-        21008211: '于吉', 21008221: '庞德公',
-        21008231: '黄承彦', 21008241: '来莺儿',
-        21008251: '贾诩', 21008261: '吕布',
-        21008271: '南华老仙', 21008281: '许劭',
-        21008291: '左慈', 21008301: '蔡文姬',
-    };
-
-    // ============================================================
-    // 主控制器
-    // ============================================================
-
-    class TavernChessReplayer {
-        constructor() {
-            this.data = null;
-            this.trajectory = [];
-            this.currentIndex = -1;
-            this.isPlaying = false;
-            this.playTimer = null;
-            this.playSpeed = 1;
-            this.speedOptions = [0.5, 1, 2, 4];
-            this.speedIndex = 1;
-
-            // DOM 引用
-            this.elements = {
-                roundDisplay: document.getElementById('roundDisplay'),
-                stepDisplay: document.getElementById('stepDisplay'),
-                totalSteps: document.getElementById('totalSteps'),
-                stepSlider: document.getElementById('stepSlider'),
-                stepInfo: document.getElementById('stepInfo'),
-                shopLevel: document.getElementById('shopLevel'),
-                shopMoney: document.getElementById('shopMoney'),
-                shopRefreshCost: document.getElementById('shopRefreshCost'),
-                shopGrid: document.getElementById('shopGrid'),
-                lineupGrid: document.getElementById('lineupGrid'),
-                lineupCount: document.getElementById('lineupCount'),
-                handGrid: document.getElementById('handGrid'),
-                handCount: document.getElementById('handCount'),
-                actionInfo: document.getElementById('actionInfo'),
-                btnPlay: document.getElementById('btnPlay'),
-                btnPrev: document.getElementById('btnPrev'),
-                btnNext: document.getElementById('btnNext'),
-                btnFirst: document.getElementById('btnFirst'),
-                btnLast: document.getElementById('btnLast'),
-                btnSpeed: document.getElementById('btnSpeed'),
-            };
-
-            this.bindEvents();
-            this.loadData();
-        }
-
+    <script>
         // ============================================================
-        // 数据加载
+        // 数据加载与状态管理
         // ============================================================
 
-        async loadData() {
+        let jsonData = null;
+        let trajectory = [];
+        let currentStep = 0;
+        let isPlaying = false;
+        let playTimer = null;
+        let playSpeed = 500; // ms
+
+        // 动作类型颜色映射
+        const actionColors = {
+            'refresh': 'badge-refresh',
+            'levelUp': 'badge-levelUp',
+            'buy': 'badge-buy',
+            'sell': 'badge-sell',
+            'lineup': 'badge-lineup',
+            'useSpell': 'badge-useSpell',
+            'lock': 'badge-lock',
+            'followUp': 'badge-followUp',
+            'init': 'badge-init',
+            'gameOver': 'badge-gameOver'
+        };
+
+        const actionLabels = {
+            'refresh': '🔄 刷新商店',
+            'levelUp': '⬆️ 升级营帐',
+            'buy': '🛒 购买卡牌',
+            'sell': '💰 遣散卡牌',
+            'lineup': '⚔️ 上阵卡牌',
+            'useSpell': '✨ 使用锦囊',
+            'lock': '🔒 锁定商店',
+            'followUp': '🔗 随征',
+            'init': '🎯 初始化',
+            'gameOver': '🏁 游戏结束'
+        };
+
+        // ============================================================
+        // 核心功能
+        // ============================================================
+
+        function loadData(jsonText) {
             try {
-                // 尝试从同一目录加载 JSON 文件
-                const response = await fetch('tavern_data.json');
-                if (!response.ok) throw new Error('无法加载数据文件');
-                this.data = await response.json();
-
-                // 提取轨迹
-                this.trajectory = this.data.trajectory || [];
-
-                if (this.trajectory.length === 0) {
-                    this.showError('数据文件中没有轨迹记录');
-                    return;
-                }
-
-                this.initUI();
-                this.goToStep(0);
-
-            } catch (error) {
-                console.error('加载数据失败:', error);
-                // 如果无法加载外部文件，尝试使用页面内嵌数据
-                if (window.EMBEDDED_DATA) {
-                    this.data = window.EMBEDDED_DATA;
-                    this.trajectory = this.data.trajectory || [];
-                    if (this.trajectory.length > 0) {
-                        this.initUI();
-                        this.goToStep(0);
-                        return;
-                    }
-                }
-                this.showError('无法加载数据文件，请确保 tavern_data.json 在同一目录下');
-            }
-        }
-
-        showError(msg) {
-            document.getElementById('gameBoard').innerHTML = `
-                <div style="text-align:center;padding:60px 20px;color:#ff6666;">
-                    <div style="font-size:48px;margin-bottom:20px;">❌</div>
-                    <div style="font-size:18px;">${msg}</div>
-                    <div style="font-size:14px;color:#88aadd;margin-top:12px;">
-                        请将 tavern_data.json 放在与本 HTML 相同的目录下
-                    </div>
-                </div>
-            `;
-        }
-
-        // ============================================================
-        // UI 初始化
-        // ============================================================
-
-        initUI() {
-            const total = this.trajectory.length;
-            this.elements.totalSteps.textContent = total;
-            this.elements.stepSlider.max = total - 1;
-            this.elements.stepInfo.textContent = `0 / ${total}`;
-        }
-
-        bindEvents() {
-            // 播放/暂停
-            this.elements.btnPlay.addEventListener('click', () => this.togglePlay());
-
-            // 步进控制
-            this.elements.btnPrev.addEventListener('click', () => this.prevStep());
-            this.elements.btnNext.addEventListener('click', () => this.nextStep());
-            this.elements.btnFirst.addEventListener('click', () => this.goToStep(0));
-            this.elements.btnLast.addEventListener('click', () => this.goToStep(this.trajectory.length - 1));
-
-            // 进度条
-            this.elements.stepSlider.addEventListener('input', (e) => {
-                const idx = parseInt(e.target.value);
-                this.goToStep(idx);
-            });
-
-            // 速度切换
-            this.elements.btnSpeed.addEventListener('click', () => {
-                this.speedIndex = (this.speedIndex + 1) % this.speedOptions.length;
-                this.playSpeed = this.speedOptions[this.speedIndex];
-                this.elements.btnSpeed.textContent = `${this.playSpeed}x`;
-                if (this.isPlaying) {
-                    this.stopPlay();
-                    this.startPlay();
-                }
-            });
-
-            // 键盘快捷键
-            document.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'INPUT') return;
-                switch (e.key) {
-                    case ' ':
-                        e.preventDefault();
-                        this.togglePlay();
-                        break;
-                    case 'ArrowLeft':
-                        this.prevStep();
-                        break;
-                    case 'ArrowRight':
-                        this.nextStep();
-                        break;
-                    case 'Home':
-                        this.goToStep(0);
-                        break;
-                    case 'End':
-                        this.goToStep(this.trajectory.length - 1);
-                        break;
-                }
-            });
-        }
-
-        // ============================================================
-        // 核心控制
-        // ============================================================
-
-        goToStep(index) {
-            if (index < 0 || index >= this.trajectory.length) return;
-
-            this.currentIndex = index;
-            const step = this.trajectory[index];
-
-            // 更新进度条
-            this.elements.stepSlider.value = index;
-            this.elements.stepInfo.textContent = `${index + 1} / ${this.trajectory.length}`;
-
-            // 更新显示
-            this.renderStep(step);
-            this.updateControls();
-
-            // 如果正在播放且到达末尾，停止播放
-            if (this.isPlaying && index >= this.trajectory.length - 1) {
-                this.stopPlay();
-            }
-        }
-
-        nextStep() {
-            if (this.currentIndex < this.trajectory.length - 1) {
-                this.goToStep(this.currentIndex + 1);
-            } else {
-                this.stopPlay();
-            }
-        }
-
-        prevStep() {
-            if (this.currentIndex > 0) {
-                this.goToStep(this.currentIndex - 1);
-            }
-        }
-
-        togglePlay() {
-            if (this.isPlaying) {
-                this.stopPlay();
-            } else {
-                this.startPlay();
-            }
-        }
-
-        startPlay() {
-            if (this.currentIndex >= this.trajectory.length - 1) {
-                this.goToStep(0);
-            }
-            this.isPlaying = true;
-            this.elements.btnPlay.textContent = '⏸';
-            this.elements.btnPlay.style.color = '#ffaa44';
-            this.playTimer = setInterval(() => {
-                if (this.currentIndex < this.trajectory.length - 1) {
-                    this.nextStep();
+                jsonData = JSON.parse(jsonText);
+                trajectory = jsonData.trajectory || [];
+                currentStep = 0;
+                document.getElementById('fileInfo').textContent =
+                    `📊 共 ${trajectory.length} 步 | ${Object.keys(jsonData.rounds || {}).length} 回合 | 分段 ${jsonData.metadata?.segmentId || 1}`;
+                renderStep(0);
+                updateProgress();
+                if (trajectory.length === 0) {
+                    document.getElementById('actionDesc').textContent = '⚠️ 没有轨迹数据';
                 } else {
-                    this.stopPlay();
+                    document.getElementById('actionDesc').textContent = '✅ 数据加载成功，点击播放查看';
                 }
-            }, 800 / this.playSpeed);
-        }
-
-        stopPlay() {
-            this.isPlaying = false;
-            this.elements.btnPlay.textContent = '▶';
-            this.elements.btnPlay.style.color = '';
-            if (this.playTimer) {
-                clearInterval(this.playTimer);
-                this.playTimer = null;
+            } catch (e) {
+                console.error('数据解析失败:', e);
+                document.getElementById('actionDesc').textContent = '❌ 数据解析失败: ' + e.message;
+                document.getElementById('fileInfo').textContent = '❌ 数据加载失败';
             }
         }
 
-        updateControls() {
-            const total = this.trajectory.length;
-            const isFirst = this.currentIndex <= 0;
-            const isLast = this.currentIndex >= total - 1;
-
-            this.elements.btnFirst.disabled = isFirst;
-            this.elements.btnPrev.disabled = isFirst;
-            this.elements.btnNext.disabled = isLast;
-            this.elements.btnLast.disabled = isLast;
-        }
-
-        // ============================================================
-        // 渲染
-        // ============================================================
-
-        renderStep(step) {
-            const state = step.stateAfter || step.stateBefore;
-            if (!state) return;
-
-            // 更新基本信息
-            this.elements.roundDisplay.textContent = state.round || 0;
-            this.elements.stepDisplay.textContent = this.currentIndex + 1;
-            this.elements.shopLevel.textContent = state.shopLevel || 0;
-            this.elements.shopMoney.textContent = state.money || 0;
-            this.elements.shopRefreshCost.textContent = state.shopRefreshCost || 0;
-
-            // 渲染各区域
-            this.renderShop(state.shopGoods || []);
-            this.renderLineup(state.lineup || []);
-            this.renderHand(state.handChess || []);
-            this.renderAction(step);
-
-            // 更新计数
-            this.elements.lineupCount.textContent = state.lineupCount || 0;
-            this.elements.handCount.textContent = state.handCount || 0;
-        }
-
-        // ----- 商店渲染 -----
-        renderShop(goods) {
-            const grid = this.elements.shopGrid;
-            grid.innerHTML = '';
-
-            if (!goods || goods.length === 0) {
-                grid.innerHTML = '<div style="color:#4a6a8a;padding:10px;">商店为空</div>';
+        function renderStep(index) {
+            if (!trajectory || trajectory.length === 0) {
+                showEmptyState();
                 return;
             }
 
-            goods.forEach((item) => {
-                const slot = document.createElement('div');
-                slot.className = `shop-slot ${item && item.goodsID ? 'has-card' : ''}`;
+            const step = trajectory[index];
+            if (!step) return;
 
-                if (item && item.goodsID) {
-                    const img = document.createElement('img');
-                    const chessId = item.chessID || 0;
-                    const spellId = item.spellID || 0;
-                    const id = spellId || chessId;
-                    img.className = 'card-img';
-                    img.src = `/assets/card/${id}.png`;
-                    img.alt = item.name || '卡牌';
-                    img.onerror = () => { img.style.display = 'none'; };
-
-                    const name = document.createElement('div');
-                    name.className = 'card-name';
-                    name.textContent = this.getCardName(chessId, spellId);
-
-                    const rank = document.createElement('div');
-                    rank.className = 'card-rank';
-                    rank.textContent = item.rank ? `⭐${item.rank}` : '';
-
-                    slot.appendChild(img);
-                    slot.appendChild(name);
-                    slot.appendChild(rank);
-                } else {
-                    const empty = document.createElement('div');
-                    empty.className = 'empty-text';
-                    empty.textContent = '空';
-                    slot.appendChild(empty);
-                }
-
-                grid.appendChild(slot);
-            });
-        }
-
-        // ----- 上阵渲染 -----
-        renderLineup(lineup) {
-            const grid = this.elements.lineupGrid;
-            grid.innerHTML = '';
-
-            if (!lineup || lineup.length === 0) {
-                grid.innerHTML = '<div style="color:#4a6a8a;padding:10px;">上阵区为空</div>';
-                return;
-            }
-
-            lineup.forEach((item, index) => {
-                const slot = document.createElement('div');
-                slot.className = `lineup-slot ${item && item.goodsID ? 'has-card' : ''}`;
-
-                if (item && item.goodsID) {
-                    const chessId = item.chessID || 0;
-                    const img = document.createElement('img');
-                    img.className = 'card-img';
-                    img.src = `/assets/card/${chessId}.png`;
-                    img.alt = item.name || '卡牌';
-                    img.onerror = () => { img.style.display = 'none'; };
-
-                    const name = document.createElement('div');
-                    name.className = 'card-name';
-                    name.textContent = this.getCardName(chessId, 0);
-
-                    const stats = document.createElement('div');
-                    stats.className = 'card-stats';
-                    stats.textContent = `⚔${item.attack || 0} ❤${item.hp || 0}`;
-
-                    slot.appendChild(img);
-                    slot.appendChild(name);
-                    slot.appendChild(stats);
-                } else {
-                    const empty = document.createElement('div');
-                    empty.className = 'empty-text';
-                    empty.textContent = `位置 ${index + 1}`;
-                    slot.appendChild(empty);
-                }
-
-                grid.appendChild(slot);
-            });
-        }
-
-        // ----- 手牌渲染 -----
-        renderHand(hand) {
-            const grid = this.elements.handGrid;
-            grid.innerHTML = '';
-
-            if (!hand || hand.length === 0) {
-                grid.innerHTML = '<div style="color:#4a6a8a;padding:10px;">手牌为空</div>';
-                return;
-            }
-
-            hand.forEach((card) => {
-                const slot = document.createElement('div');
-                slot.className = `hand-slot ${card && card.goodsID ? 'has-card' : ''}`;
-
-                if (card && card.goodsID) {
-                    const chessId = card.chessID || 0;
-                    const spellId = card.spellID || 0;
-                    const id = spellId || chessId;
-
-                    const img = document.createElement('img');
-                    img.className = 'card-img';
-                    img.src = `/assets/card/${id}.png`;
-                    img.alt = card.name || '卡牌';
-                    img.onerror = () => { img.style.display = 'none'; };
-
-                    const name = document.createElement('div');
-                    name.className = 'card-name';
-                    name.textContent = this.getCardName(chessId, spellId);
-
-                    const tag = document.createElement('div');
-                    tag.className = 'card-tag';
-                    if (card.isSpell) {
-                        tag.textContent = '📜 锦囊';
-                        tag.classList.add('tag-spell');
-                    } else if (card.isFollowUp) {
-                        tag.textContent = '🔗 随征';
-                        tag.classList.add('tag-followup');
-                    } else {
-                        tag.textContent = `⚔${card.attack || 0} ❤${card.hp || 0}`;
-                    }
-
-                    slot.appendChild(img);
-                    slot.appendChild(name);
-                    slot.appendChild(tag);
-                } else {
-                    const empty = document.createElement('div');
-                    empty.className = 'empty-text';
-                    empty.textContent = '空';
-                    slot.appendChild(empty);
-                }
-
-                grid.appendChild(slot);
-            });
-        }
-
-        // ----- 动作渲染 -----
-        renderAction(step) {
-            const info = this.elements.actionInfo;
-            const type = step.type || 'unknown';
+            const state = step.stateBefore || {};
+            const afterState = step.stateAfter || {};
+            const action = step.type || 'unknown';
             const details = step.details || {};
 
-            const typeMap = {
-                'init': '🎬 初始化',
-                'refresh': '🔄 刷新商店',
-                'levelUp': '⬆ 升级营帐',
-                'lock': '🔒 锁定/解锁',
-                'buy': '🛒 购买',
-                'sell': '💰 遣散',
-                'lineup': '⚔ 上阵',
-                'useSpell': '📜 使用锦囊',
-                'followUp': '🔗 随征',
-                'gameOver': '🏁 游戏结束'
-            };
+            // 更新状态显示（优先使用 afterState，否则用 stateBefore）
+            const displayState = afterState || state;
 
-            const typeText = typeMap[type] || `❓ ${type}`;
+            // 渲染各区
+            renderShop(displayState.shopGoods || []);
+            renderHand(displayState.handChess || []);
+            renderLineup(displayState.lineup || []);
+
+            // 更新统计
+            document.getElementById('shopCount').textContent = (displayState.shopGoods || []).length + ' 张';
+            document.getElementById('handCount').textContent = (displayState.handChess || []).length + ' 张';
+            document.getElementById('lineupCount').textContent = (displayState.lineup || []).length + ' 张';
+
+            // 更新状态栏
+            document.getElementById('statMoney').textContent = displayState.money ?? '?';
+            document.getElementById('statLevel').textContent = displayState.shopLevel ?? '?';
+            document.getElementById('statHp').textContent = displayState.hp ?? '?';
+            document.getElementById('statRefreshCost').textContent = displayState.shopRefreshCost ?? '?';
+            document.getElementById('statLevelCost').textContent = displayState.shopLevelUpCost ?? '?';
+            document.getElementById('statLock').textContent = displayState.shopLock ? '是' : '否';
+
+            // 更新步骤信息
+            const round = step.round ?? '?';
+            document.getElementById('stepInfo').textContent =
+                `步骤 ${index + 1} / ${trajectory.length} | 回合 ${round}`;
+
+            // 更新动作描述
+            const actionLabel = actionLabels[action] || action;
+            const badgeClass = actionColors[action] || 'badge-refresh';
+            const timeStr = step.time ? new Date(step.time).toLocaleTimeString() : '';
 
             let detailText = '';
-            switch (type) {
-                case 'buy':
-                    detailText = `goodsID: ${details.goodsID || '?'}, 位置: ${(details.slotIndex || 0) + 1}`;
-                    break;
-                case 'sell':
-                    detailText = `goodsID: ${details.goodsID || '?'}`;
-                    break;
-                case 'lineup':
-                    detailText = `位置: ${details.position || '?'}`;
-                    break;
-                case 'useSpell':
-                    detailText = `goodsID: ${details.goodsID || '?'}, spellID: ${details.spellID || '?'}`;
-                    break;
-                case 'followUp':
-                    detailText = `目标: ${details.targetGoodsID || '?'}, 随征: ${details.followUpGoodsID || '?'}`;
-                    break;
-                case 'refresh':
-                    detailText = `消耗: ${details.cost || 0}${details.isAuto ? ' (自动)' : ''}`;
-                    break;
-                case 'levelUp':
-                    detailText = `消耗: ${details.cost || 0}, 新等级: ${details.newLevel || '?'}`;
-                    break;
-                case 'lock':
-                    detailText = `新状态: ${details.newState ? '🔒 锁定' : '🔓 解锁'}`;
-                    break;
-                default:
-                    detailText = '';
+            if (action === 'buy') {
+                detailText = `购买: 卡牌ID ${details.goodsID || '?'}, 位置 ${details.slotIndex ?? '?'}, 消耗 ${details.cost ?? '?'} 金币`;
+            } else if (action === 'sell') {
+                detailText = `遣散: 卡牌ID ${details.goodsID || '?'}, 随征: ${details.isFollowUp ? '是' : '否'}`;
+            } else if (action === 'refresh') {
+                detailText = `刷新商店, 消耗 ${details.cost ?? '?'} 金币, ${details.isAuto ? '自动' : '手动'}`;
+            } else if (action === 'levelUp') {
+                detailText = `升级营帐, 消耗 ${details.cost ?? '?'} 金币, 新等级 ${details.newLevel ?? '?'}`;
+            } else if (action === 'lineup') {
+                const changes = details.changes || [];
+                detailText = `上阵调整: ${changes.length} 个位置变化` +
+                    changes.map(c => `[${c.position}] ${c.oldGoodsID || '空'}→${c.newGoodsID || '空'}`).join(' ');
+            } else if (action === 'useSpell') {
+                detailText = `使用锦囊: ID ${details.goodsID || '?'}, 目标 ${(details.targets || []).join(', ') || '无'}`;
+            } else if (action === 'followUp') {
+                detailText = `随征: 目标 ${details.targetGoodsID || '?'}, 随征卡 ${details.followUpGoodsID || '?'}`;
+            } else if (action === 'lock') {
+                detailText = `锁定状态: ${details.newState !== undefined ? (details.newState ? '锁定' : '解锁') : '切换'}`;
+            } else {
+                detailText = JSON.stringify(details);
             }
 
-            info.innerHTML = `
-                <span class="action-type">${typeText}</span>
-                ${detailText ? `<span class="action-detail">${detailText}</span>` : ''}
-                <span style="color:#4a6a8a;font-size:12px;margin-left:12px;">
-                    ${step.time ? new Date(step.time).toLocaleTimeString() : ''}
-                </span>
-            `;
+            document.getElementById('actionDesc').innerHTML =
+                `<span class="action-type-badge ${badgeClass}">${actionLabel}</span> ${timeStr}`;
+            document.getElementById('actionDetails').textContent = detailText;
         }
 
         // ============================================================
-        // 工具方法
+        // 渲染函数
         // ============================================================
 
-        getCardName(chessId, spellId) {
-            if (spellId) {
-                return '📜 锦囊';
+        function renderShop(goods) {
+            const grid = document.getElementById('shopGrid');
+            grid.innerHTML = '';
+            if (!goods || goods.length === 0) {
+                grid.innerHTML = '<div class="card-empty">🛒 商店为空</div>';
+                return;
             }
-            const name = CHESS_NAME_MAP[chessId];
-            if (name) return name;
-            // 尝试从chessId推断
-            const idStr = String(chessId);
-            if (idStr.length >= 5) {
-                const prefix = idStr.substring(0, 5);
-                // 如果是金卡 (以2结尾)
-                if (idStr.endsWith('2')) {
-                    return `✨ ${CHESS_NAME_MAP[parseInt(prefix + '1')] || '?'}`;
+            goods.forEach((item, idx) => {
+                if (!item || !item.chessID && !item.spellID) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'card-item';
+                    emptyDiv.style.opacity = '0.3';
+                    emptyDiv.innerHTML = `<div style="padding:20px 0;font-size:12px;color:#3a4a5e;">空位</div>`;
+                    grid.appendChild(emptyDiv);
+                    return;
+                }
+                const div = createCardElement(item, idx);
+                grid.appendChild(div);
+            });
+        }
+
+        function renderHand(cards) {
+            const grid = document.getElementById('handGrid');
+            grid.innerHTML = '';
+            if (!cards || cards.length === 0) {
+                grid.innerHTML = '<div class="card-empty">🃏 手牌为空</div>';
+                return;
+            }
+            cards.forEach((item, idx) => {
+                const div = createCardElement(item, idx);
+                grid.appendChild(div);
+            });
+        }
+
+        function renderLineup(chesses) {
+            const grid = document.getElementById('lineupGrid');
+            grid.innerHTML = '';
+            if (!chesses || chesses.length === 0) {
+                grid.innerHTML = '<div class="card-empty">⚔️ 上阵区为空</div>';
+                return;
+            }
+            chesses.forEach((item, idx) => {
+                const div = createCardElement(item, idx);
+                // 添加位置标记
+                const posTag = document.createElement('div');
+                posTag.style.cssText =
+                    'position:absolute;top:2px;left:4px;font-size:9px;color:#6a8a9a;background:rgba(0,0,0,0.5);padding:0 4px;border-radius:3px;';
+                posTag.textContent = `#${idx + 1}`;
+                div.appendChild(posTag);
+                grid.appendChild(div);
+            });
+        }
+
+        function createCardElement(item, idx) {
+            const div = document.createElement('div');
+            div.className = 'card-item';
+
+            const chessId = item.chessID || item.cardID || 0;
+            const spellId = item.spellID || 0;
+            const isSpell = item.isSpell || (spellId > 0 && !chessId);
+            const cardId = isSpell ? spellId : chessId;
+
+            // 图片
+            const img = document.createElement('img');
+            const filename = isSpell ? `spell_${spellId}` : `card_${chessId}`;
+            // 尝试加载图片，如果不存在则显示占位
+            img.src = `assets/card/${chessId || spellId}.png`;
+            img.onerror = function() {
+                this.src = '';
+                this.alt = isSpell ? `锦囊${spellId}` : `棋子${chessId}`;
+                this.style.background = '#1a2744';
+                this.style.display = 'flex';
+                this.style.alignItems = 'center';
+                this.style.justifyContent = 'center';
+                this.style.fontSize = '10px';
+                this.style.color = '#5a6a85';
+                // 显示ID作为备选
+                const parent = this.parentElement;
+                const label = document.createElement('div');
+                label.style.cssText =
+                    'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;color:#5a6a85;text-align:center;';
+                label.textContent = isSpell ? `📜${spellId}` : `♟${chessId}`;
+                parent.appendChild(label);
+            };
+            div.appendChild(img);
+
+            // ID标签
+            const idLabel = document.createElement('span');
+            idLabel.className = 'card-id';
+            idLabel.textContent = isSpell ? `S${spellId}` : `C${chessId}`;
+            div.appendChild(idLabel);
+
+            // 名称（如果有）
+            const name = item.name || (isSpell ? `锦囊` : `棋子`);
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'card-name';
+            nameDiv.textContent = name.length > 6 ? name.slice(0, 6) + '..' : name;
+            div.appendChild(nameDiv);
+
+            // 等级/星级
+            if (item.rank || item.rank === 0) {
+                const rankDiv = document.createElement('div');
+                rankDiv.className = 'card-rank';
+                const starCount = Math.min(Math.max(item.rank || 1, 1), 6);
+                rankDiv.textContent = '⭐'.repeat(Math.min(starCount, 3));
+                div.appendChild(rankDiv);
+            }
+
+            // 属性（攻击/血量）
+            if (!isSpell && (item.attack || item.hp)) {
+                const stats = document.createElement('div');
+                stats.className = 'card-stats';
+                stats.innerHTML = `<span>⚔${item.attack || 0}</span><span>❤${item.hp || 0}</span>`;
+                div.appendChild(stats);
+            }
+
+            // 随征标记
+            if (item.isFollowUp) {
+                const tag = document.createElement('div');
+                tag.style.cssText =
+                    'position:absolute;bottom:2px;right:4px;font-size:8px;color:#14b8a6;background:rgba(0,0,0,0.6);padding:0 4px;border-radius:3px;';
+                tag.textContent = '随征';
+                div.appendChild(tag);
+            }
+
+            // 锦囊标记
+            if (isSpell) {
+                const tag = document.createElement('div');
+                tag.style.cssText =
+                    'position:absolute;top:20px;right:2px;font-size:10px;color:#ec4899;background:rgba(0,0,0,0.6);padding:0 4px;border-radius:3px;';
+                tag.textContent = '📜';
+                div.appendChild(tag);
+            }
+
+            return div;
+        }
+
+        function showEmptyState() {
+            ['shopGrid', 'handGrid', 'lineupGrid'].forEach(id => {
+                document.getElementById(id).innerHTML = '<div class="card-empty">📭 暂无数据</div>';
+            });
+            document.getElementById('actionDesc').textContent = '📭 请加载数据文件';
+            document.getElementById('actionDetails').textContent = '';
+            document.getElementById('stepInfo').textContent = '步骤 0 / 0';
+        }
+
+        // ============================================================
+        // 播放控制
+        // ============================================================
+
+        function nextStep() {
+            if (!trajectory || trajectory.length === 0) return;
+            if (currentStep < trajectory.length - 1) {
+                currentStep++;
+                renderStep(currentStep);
+                updateProgress();
+            } else {
+                if (isPlaying) togglePlay();
+                document.getElementById('actionDesc').textContent = '🏁 已到达最后一步';
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                renderStep(currentStep);
+                updateProgress();
+            }
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('playBtn');
+            if (isPlaying) {
+                clearInterval(playTimer);
+                playTimer = null;
+                isPlaying = false;
+                btn.textContent = '▶ 播放';
+                btn.className = 'btn-play';
+            } else {
+                if (currentStep >= trajectory.length - 1) {
+                    currentStep = 0;
+                    renderStep(0);
+                    updateProgress();
+                }
+                isPlaying = true;
+                btn.textContent = '⏸ 暂停';
+                btn.className = 'btn-pause';
+                playTimer = setInterval(() => {
+                    if (currentStep < trajectory.length - 1) {
+                        currentStep++;
+                        renderStep(currentStep);
+                        updateProgress();
+                    } else {
+                        togglePlay();
+                        document.getElementById('actionDesc').textContent = '🏁 播放完成';
+                    }
+                }, playSpeed);
+            }
+        }
+
+        function resetPlay() {
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = null;
+                isPlaying = false;
+                document.getElementById('playBtn').textContent = '▶ 播放';
+                document.getElementById('playBtn').className = 'btn-play';
+            }
+            currentStep = 0;
+            if (trajectory && trajectory.length > 0) {
+                renderStep(0);
+                updateProgress();
+            } else {
+                showEmptyState();
+            }
+        }
+
+        function setSpeed(value) {
+            playSpeed = parseInt(value);
+            if (isPlaying) {
+                // 重新设置定时器
+                clearInterval(playTimer);
+                playTimer = setInterval(() => {
+                    if (currentStep < trajectory.length - 1) {
+                        currentStep++;
+                        renderStep(currentStep);
+                        updateProgress();
+                    } else {
+                        togglePlay();
+                    }
+                }, playSpeed);
+            }
+        }
+
+        function updateProgress() {
+            if (!trajectory || trajectory.length === 0) {
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('progressThumb').style.left = '0%';
+                return;
+            }
+            const pct = (currentStep / (trajectory.length - 1)) * 100;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('progressThumb').style.left = pct + '%';
+        }
+
+        function clickProgress(e) {
+            const bar = document.getElementById('progressBar');
+            const rect = bar.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            if (trajectory && trajectory.length > 0) {
+                currentStep = Math.floor(pct * (trajectory.length - 1));
+                currentStep = Math.max(0, Math.min(currentStep, trajectory.length - 1));
+                renderStep(currentStep);
+                updateProgress();
+                if (isPlaying) {
+                    // 播放中点击进度条，重置定时器
+                    clearInterval(playTimer);
+                    playTimer = setInterval(() => {
+                        if (currentStep < trajectory.length - 1) {
+                            currentStep++;
+                            renderStep(currentStep);
+                            updateProgress();
+                        } else {
+                            togglePlay();
+                        }
+                    }, playSpeed);
                 }
             }
-            return `武将 ${chessId}`;
         }
-    }
 
-    // ============================================================
-    // 启动
-    // ============================================================
+        // ============================================================
+        // 文件加载（支持拖拽和选择）
+        // ============================================================
 
-    document.addEventListener('DOMContentLoaded', () => {
-        window.replayer = new TavernChessReplayer();
-    });
+        function loadFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    loadData(text);
+                } catch (err) {
+                    console.error('读取文件失败:', err);
+                    document.getElementById('actionDesc').textContent = '❌ 读取文件失败: ' + err.message;
+                }
+            };
+            reader.readAsText(file);
+        }
 
-    // ============================================================
-    // 支持内嵌数据 (用于调试)
-    // ============================================================
+        // 拖拽支持
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.endsWith('.json')) {
+                loadFromFile(files[0]);
+            } else {
+                document.getElementById('actionDesc').textContent = '⚠️ 请拖入 .json 文件';
+            }
+        });
 
-    // 如果需要内嵌数据，可以在这里粘贴 JSON 数据
-    // window.EMBEDDED_DATA = { ... };
-</script>
+        // 文件选择按钮
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.style.display = 'none';
+        fileInput.onchange = function(e) {
+            if (this.files.length > 0) {
+                loadFromFile(this.files[0]);
+            }
+        };
+        document.body.appendChild(fileInput);
 
+        // 添加加载按钮到控制栏
+        const controls = document.querySelector('.controls');
+        const loadBtn = document.createElement('button');
+        loadBtn.textContent = '📂 加载数据';
+        loadBtn.style.cssText =
+            'padding:8px 16px;border:none;border-radius:6px;font-size:14px;cursor:pointer;background:#8b5cf6;color:#fff;font-weight:bold;';
+        loadBtn.onclick = function() { fileInput.click(); };
+        controls.insertBefore(loadBtn, controls.firstChild);
+
+        // ============================================================
+        // 键盘快捷键
+        // ============================================================
+
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            switch (e.key) {
+                case ' ':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                    e.preventDefault();
+                    if (isPlaying) togglePlay();
+                    nextStep();
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                    e.preventDefault();
+                    if (isPlaying) togglePlay();
+                    prevStep();
+                    break;
+                case 'r':
+                    resetPlay();
+                    break;
+            }
+        });
+
+        // ============================================================
+        // 初始化
+        // ============================================================
+
+        showEmptyState();
+        document.getElementById('actionDesc').textContent = '📂 点击"加载数据"按钮或拖入 JSON 文件';
+        document.getElementById('fileInfo').textContent = '📂 等待加载...';
+
+        console.log('🎮 自走棋录像回放已启动');
+        console.log('⌨️ 快捷键: 空格=播放/暂停, ←/→=上一步/下一步, R=重置');
+        console.log('📂 拖入 tavern_segment_*.json 文件加载数据');
+
+        // 尝试从URL参数加载
+        const urlParams = new URLSearchParams(window.location.search);
+        const dataUrl = urlParams.get('data');
+        if (dataUrl) {
+            fetch(dataUrl)
+                .then(res => res.text())
+                .then(text => loadData(text))
+                .catch(err => console.error('加载URL数据失败:', err));
+        }
+
+        // 暴露全局变量用于调试
+        window.__replay = {
+            loadData,
+            nextStep,
+            prevStep,
+            togglePlay,
+            resetPlay,
+            setSpeed,
+            getData: () => jsonData,
+            getTrajectory: () => trajectory,
+            jumpTo: (idx) => { currentStep = Math.max(0, Math.min(idx, trajectory.length - 1));
+                renderStep(currentStep);
+                updateProgress(); }
+        };
+    </script>
 </body>
 </html>
