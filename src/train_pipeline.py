@@ -175,18 +175,15 @@ CONFIG_TEMPLATE = {
 # ===================== 主程序 =====================
 if __name__ == "__main__":
     import argparse
-
     parser = argparse.ArgumentParser(description='自走棋强化学习训练')
     parser.add_argument('--config', type=str, default='config.json', help='配置文件路径')
     parser.add_argument('--mode', type=str, choices=['train', 'eval', 'play'], default='train')
     parser.add_argument('--model', type=str, help='模型路径')
     args = parser.parse_args()
-
     if args.mode == 'train':
         # 创建并保存配置
         with open(args.config, 'w') as f:
             json.dump(CONFIG_TEMPLATE, f, indent=2)
-
         # 运行训练
         pipeline = TrainingPipeline(args.config)
         pipeline.train()

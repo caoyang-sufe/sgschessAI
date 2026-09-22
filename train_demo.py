@@ -9,7 +9,7 @@ from transformers import (
 	BitsAndBytesConfig
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+from trl import SFTTrainer, SFTConfig
 import numpy as np
 from collections import Counter
 import pandas as pd
@@ -50,19 +50,14 @@ class TavernChessDataset(Dataset):
 			state_before = trajectory.get('stateBefore')
 			action = trajectory.get('type')
 			details = trajectory.get('details', {})
-
 			if state_before is None:
 				continue
-
 			# 提取状态特征
 			state_features = self._extract_features(state_before)
-
 			# 构建动作描述
 			action_desc = self._build_action_description(action, details)
-
 			# 标签：动作类型
 			action_label = self.action_type_map.get(action, 0)
-
 			samples.append({
 				'state': state_features,
 				'action_label': action_label,
@@ -71,7 +66,6 @@ class TavernChessDataset(Dataset):
 				'raw_action': action,
 				'details': details
 			})
-
 		return samples
 
 	def _extract_features(self, state):
@@ -151,29 +145,17 @@ class TavernChessDataset(Dataset):
 
 	def __getitem__(self, idx):
 		sample = self.samples[idx]
-		state_tensor = torch.tensor(sample['state'], dtype=torch.float32)
-		action_tensor = torch.tensor(sample['action_label'], dtype=torch.long)
 
-		# 构建文本输入（用于语言模型微调）
-		text = f"当前状态: {json.dumps(sample['raw_state'])}\n动作: {sample['action_desc']}\n"
+		# prompt：模型看到的输入（状态）
+		prompt = f"当前状态: {json.dumps(sample['raw_state'])}\n"
 
-		# Tokenize
-		encoding = self.tokenizer(
-			text,
-			truncation=True,
-			max_length=self.max_length,
-			padding='max_length',
-			return_tensors='pt'
-		)
+		# completion：模型需要学习生成的输出（动作）
+		completion = f"动作: {sample['action_desc']}\n"
 
 		return {
-			'input_ids': encoding['input_ids'].squeeze(),
-			'attention_mask': encoding['attention_mask'].squeeze(),
-			'state': state_tensor,
-			'action_label': action_tensor,
-			'action_desc': sample['action_desc']
+			'prompt': prompt,
+			'completion': completion,
 		}
-
 
 # ===================== 2. 模型定义 =====================
 
@@ -239,7 +221,7 @@ def train():
 	model.print_trainable_parameters()
 
 	# 4. 训练参数
-	training_args = TrainingArguments(
+	sft_config = SFTConfig(
 		output_dir="./chess_model_output",
 		num_train_epochs=3,
 		per_device_train_batch_size=4,
@@ -248,25 +230,24 @@ def train():
 		logging_steps=50,
 		learning_rate=2e-4,
 		fp16=True,
+		bf16=True,
 		warmup_ratio=0.03,
 		lr_scheduler_type="cosine",
-		report_to="none"
+		report_to="none",
+		max_length=512,              # 替代 max_seq_length
+		completion_only_loss=True,   # 关键：只对 completion 算 loss
+		packing=False,
 	)
 
 	# 5. 数据整理器
 	response_template = "动作:"
-	collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
 
 	# 6. SFT 训练器
 	trainer = SFTTrainer(
 		model=model,
-		args=training_args,
+		args=sft_config,
 		train_dataset=dataset,
-		tokenizer=tokenizer,
-		data_collator=collator,
-		max_seq_length=512,
-		dataset_text_field="text",
-		packing=False
+		processing_class=tokenizer,  # 新版参数名，替代 tokenizer
 	)
 
 	# 7. 开始训练

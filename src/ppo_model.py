@@ -52,12 +52,10 @@ class ActorCritic(nn.Module):
         features = self.state_encoder(state)
         logits = self.actor(features)
         probs = F.softmax(logits, dim=-1)
-
         if deterministic:
             action = probs.argmax(dim=-1).item()
         else:
             action = torch.multinomial(probs, 1).item()
-
         log_prob = F.log_softmax(logits, dim=-1)[0, action]
         value = self.critic(features)
 
