@@ -33,3 +33,9 @@
 ## 260813更新
 
 - TickRecord.html: 根据tick数据复原游戏录像，暂未没有上传所有卡牌的图片，可在 [https://github.com/caoyang-sufe/TavernChessCodex/tree/main/assets](https://github.com/caoyang-sufe/TavernChessCodex/tree/main/assets) 下找到相关图片的历史备份
+
+---
+
+## 260923更新
+
+上传了S10赛季末所有的图片assets，更新了数据收集脚本（改为分段自动下载），根据收集到的游戏tick数据录像可以跑通
